@@ -111,7 +111,7 @@ export default function CustomerLayout() {
               <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br from-blue-600 to-green-600">
                 <Leaf className="h-6 w-6 text-white" />
               </div>
-              <span className="hidden text-2xl font-bold bg-gradient-to-r from-blue-600 to-green-600 bg-clip-text text-transparent sm:block">
+              <span className="hidden bg-gradient-to-r from-blue-600 to-green-600 bg-clip-text text-2xl font-bold text-transparent sm:block">
                 Agriather
               </span>
             </Link>
@@ -119,7 +119,7 @@ export default function CustomerLayout() {
             {/* Search Bar - Desktop */}
             <form
               onSubmit={handleSearch}
-              className="hidden flex-1 max-w-xl md:block"
+              className="hidden max-w-xl flex-1 md:block"
             >
               <div className="relative">
                 <input
@@ -127,9 +127,9 @@ export default function CustomerLayout() {
                   placeholder="Search for seeds, fertilizers, tools..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full rounded-full border border-gray-300 bg-gray-50 py-2 pl-10 pr-4 text-sm focus:border-blue-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                  className="w-full rounded-full border border-gray-300 bg-gray-50 py-2 pr-4 pl-10 text-sm focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-500/20 focus:outline-none"
                 />
-                <Search className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
+                <Search className="absolute top-1/2 left-3 h-5 w-5 -translate-y-1/2 text-gray-400" />
               </div>
             </form>
 
@@ -161,7 +161,7 @@ export default function CustomerLayout() {
                   <ChevronDown className="h-4 w-4" />
                 </button>
                 {/* Dropdown Menu */}
-                <div className="absolute left-0 mt-2 hidden w-64 rounded-lg bg-white py-2 shadow-xl ring-1 ring-black ring-opacity-5 group-hover:block">
+                <div className="ring-opacity-5 absolute left-0 mt-2 hidden w-64 rounded-lg bg-white py-2 shadow-xl ring-1 ring-black group-hover:block">
                   <Link
                     to="/products"
                     className="block px-4 py-2 text-sm font-medium text-gray-900 hover:bg-blue-50"
@@ -215,7 +215,7 @@ export default function CustomerLayout() {
               {isAuthenticated ? (
                 <>
                   {/* Wishlist */}
-                  <button className="relative rounded-lg p-2 text-gray-700 hover:bg-gray-100 hover:text-red-500 transition-colors">
+                  <button className="relative rounded-lg p-2 text-gray-700 transition-colors hover:bg-gray-100 hover:text-red-500">
                     <Heart className="h-5 w-5" />
                     <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-xs text-white">
                       0
@@ -225,37 +225,37 @@ export default function CustomerLayout() {
                   {/* Cart */}
                   <Link
                     to="/cart"
-                    className="relative rounded-lg p-2 text-gray-700 hover:bg-gray-100 hover:text-blue-600 transition-colors"
+                    className="relative rounded-lg p-2 text-gray-700 transition-colors hover:bg-gray-100 hover:text-blue-600"
                   >
                     <ShoppingCart className="h-5 w-5" />
                     {totalQuantity > 0 && (
-                      <span className="absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-blue-600 text-xs font-medium text-white animate-pulse">
+                      <span className="absolute -top-1 -right-1 flex h-5 w-5 animate-pulse items-center justify-center rounded-full bg-blue-600 text-xs font-medium text-white">
                         {totalQuantity}
                       </span>
                     )}
                   </Link>
 
                   {/* Notifications */}
-                  <button className="relative rounded-lg p-2 text-gray-700 hover:bg-gray-100 hover:text-blue-600 transition-colors">
+                  <button className="relative rounded-lg p-2 text-gray-700 transition-colors hover:bg-gray-100 hover:text-blue-600">
                     <Bell className="h-5 w-5" />
                     <span className="absolute top-1.5 right-1.5 h-2 w-2 rounded-full bg-red-500"></span>
                   </button>
 
                   {/* User Menu */}
                   <div className="group relative hidden lg:block">
-                    <button className="flex items-center space-x-2 rounded-lg px-3 py-2 text-gray-700 hover:bg-gray-100 hover:text-blue-600 transition-colors">
+                    <button className="flex items-center space-x-2 rounded-lg px-3 py-2 text-gray-700 transition-colors hover:bg-gray-100 hover:text-blue-600">
                       <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-blue-600 to-green-600 text-sm font-medium text-white">
                         {user?.name?.charAt(0).toUpperCase()}
                       </div>
                       <span className="text-sm font-medium">{user?.name}</span>
                       <ChevronDown className="h-4 w-4" />
                     </button>
-                    <div className="absolute right-0 mt-2 hidden w-56 rounded-lg bg-white py-2 shadow-xl ring-1 ring-black ring-opacity-5 group-hover:block">
-                      <div className="px-4 py-3 border-b border-gray-100">
+                    <div className="ring-opacity-5 absolute right-0 mt-2 hidden w-56 rounded-lg bg-white py-2 shadow-xl ring-1 ring-black group-hover:block">
+                      <div className="border-b border-gray-100 px-4 py-3">
                         <p className="text-sm font-medium text-gray-900">
                           {user?.name}
                         </p>
-                        <p className="text-xs text-gray-500 truncate">
+                        <p className="truncate text-xs text-gray-500">
                           {user?.email}
                         </p>
                       </div>
@@ -337,9 +337,9 @@ export default function CustomerLayout() {
                     placeholder="Search products..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    className="w-full rounded-lg border border-gray-300 bg-gray-50 py-2 pl-10 pr-4 text-sm focus:border-blue-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                    className="w-full rounded-lg border border-gray-300 bg-gray-50 py-2 pr-4 pl-10 text-sm focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-500/20 focus:outline-none"
                   />
-                  <Search className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
+                  <Search className="absolute top-1/2 left-3 h-5 w-5 -translate-y-1/2 text-gray-400" />
                 </div>
               </form>
             </div>
