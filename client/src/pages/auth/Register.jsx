@@ -26,7 +26,8 @@ export default function Register() {
   const navigate = useNavigate();
   const { loading } = useSelector((state) => state.auth);
   const [formData, setFormData] = useState({
-    name: '',
+    firstname: '',
+    lastname: '',
     email: '',
     password: '',
     confirmPassword: '',
@@ -54,7 +55,8 @@ export default function Register() {
     }
 
     const dataToSubmit = {
-      name: formData.name,
+      firstname: formData.firstname,
+      lastname: formData.lastname,
       email: formData.email,
       password: formData.password,
       role: formData.role,
@@ -84,16 +86,29 @@ export default function Register() {
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
-            <div>
-              <Label htmlFor="name">Full Name</Label>
-              <Input
-                id="name"
-                name="name"
-                placeholder="John Doe"
-                value={formData.name}
-                onChange={handleChange}
-                required
-              />
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div>
+                <Label htmlFor="firstname">First Name</Label>
+                <Input
+                  id="firstname"
+                  name="firstname"
+                  placeholder="John"
+                  value={formData.firstname}
+                  onChange={handleChange}
+                  required
+                />
+              </div>
+              <div>
+                <Label htmlFor="lastname">Last Name</Label>
+                <Input
+                  id="lastname"
+                  name="lastname"
+                  placeholder="Doe"
+                  value={formData.lastname}
+                  onChange={handleChange}
+                  required
+                />
+              </div>
             </div>
 
             <div>

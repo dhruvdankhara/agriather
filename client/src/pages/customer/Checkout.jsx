@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
 import { fetchCart } from '../../store/slices/cartSlice';
+import { fetchAddresses, createAddress } from '../../store/slices/addressSlice';
 import { Button } from '../../components/ui/Button';
 import {
   Card,
@@ -33,18 +34,24 @@ export default function Checkout() {
     totalAmount,
     loading: cartLoading,
   } = useSelector((state) => state.cart);
-  const { user } = useSelector((state) => state.auth);
+  const { addresses, loading: addressLoading } = useSelector(
+    (state) => state.address
+  );
 
   const [loading, setLoading] = useState(false);
   const [selectedAddressId, setSelectedAddressId] = useState('');
   const [showAddressForm, setShowAddressForm] = useState(false);
   const [newAddress, setNewAddress] = useState({
+    type: 'shipping',
+    label: '',
     addressLine1: '',
     addressLine2: '',
+    landmark: '',
     city: '',
     state: '',
     pincode: '',
     country: 'India',
+    phone: '',
     isDefault: false,
   });
   const [paymentMethod, setPaymentMethod] = useState('cash_on_delivery');
@@ -52,18 +59,18 @@ export default function Checkout() {
 
   useEffect(() => {
     dispatch(fetchCart());
+    dispatch(fetchAddresses({ type: 'shipping' }));
   }, [dispatch]);
 
   useEffect(() => {
-    if (user?.shippingAddresses && user.shippingAddresses.length > 0) {
+    if (addresses && addresses.length > 0) {
       const defaultAddress =
-        user.shippingAddresses.find((addr) => addr.isDefault) ||
-        user.shippingAddresses[0];
+        addresses.find((addr) => addr.isDefault) || addresses[0];
       if (defaultAddress && defaultAddress._id) {
         setSelectedAddressId(defaultAddress._id);
       }
     }
-  }, [user]);
+  }, [addresses]);
 
   const handlePlaceOrder = async (e) => {
     e.preventDefault();
@@ -142,11 +149,14 @@ export default function Checkout() {
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                {user?.shippingAddresses &&
-                user.shippingAddresses.length > 0 ? (
+                {addressLoading ? (
+                  <div className="flex justify-center py-4">
+                    <Spinner className="h-6 w-6" />
+                  </div>
+                ) : addresses && addresses.length > 0 ? (
                   <>
                     <div className="space-y-3">
-                      {user.shippingAddresses.map((address) => (
+                      {addresses.map((address) => (
                         <div
                           key={address._id}
                           onClick={() => setSelectedAddressId(address._id)}
@@ -158,12 +168,22 @@ export default function Checkout() {
                         >
                           <div className="flex items-start justify-between">
                             <div className="flex-1">
+                              {address.label && (
+                                <p className="mb-1 font-semibold text-gray-700">
+                                  {address.label}
+                                </p>
+                              )}
                               <p className="font-medium">
                                 {address.addressLine1}
                               </p>
                               {address.addressLine2 && (
                                 <p className="text-sm text-gray-600">
                                   {address.addressLine2}
+                                </p>
+                              )}
+                              {address.landmark && (
+                                <p className="text-sm text-gray-600">
+                                  Landmark: {address.landmark}
                                 </p>
                               )}
                               <p className="text-sm text-gray-600">
@@ -173,6 +193,11 @@ export default function Checkout() {
                               <p className="text-sm text-gray-600">
                                 {address.country}
                               </p>
+                              {address.phone && (
+                                <p className="text-sm text-gray-600">
+                                  Phone: {address.phone}
+                                </p>
+                              )}
                             </div>
                             {selectedAddressId === address._id && (
                               <div className="ml-2 flex h-6 w-6 items-center justify-center rounded-full bg-green-500 text-white">
@@ -198,6 +223,20 @@ export default function Checkout() {
                     </Button>
                     {showAddressForm && (
                       <div className="space-y-4 rounded-lg border p-4">
+                        <div>
+                          <Label htmlFor="label">Address Label</Label>
+                          <Input
+                            id="label"
+                            value={newAddress.label}
+                            onChange={(e) =>
+                              setNewAddress({
+                                ...newAddress,
+                                label: e.target.value,
+                              })
+                            }
+                            placeholder="Home, Office, etc."
+                          />
+                        </div>
                         <div>
                           <Label htmlFor="addressLine1">Address Line 1 *</Label>
                           <Input
@@ -225,6 +264,20 @@ export default function Checkout() {
                               })
                             }
                             placeholder="Street, Area"
+                          />
+                        </div>
+                        <div>
+                          <Label htmlFor="landmark">Landmark</Label>
+                          <Input
+                            id="landmark"
+                            value={newAddress.landmark}
+                            onChange={(e) =>
+                              setNewAddress({
+                                ...newAddress,
+                                landmark: e.target.value,
+                              })
+                            }
+                            placeholder="Near park, Behind mall, etc."
                           />
                         </div>
                         <div className="grid gap-4 md:grid-cols-2">
@@ -290,6 +343,20 @@ export default function Checkout() {
                             />
                           </div>
                         </div>
+                        <div>
+                          <Label htmlFor="phone">Phone Number</Label>
+                          <Input
+                            id="phone"
+                            value={newAddress.phone}
+                            onChange={(e) =>
+                              setNewAddress({
+                                ...newAddress,
+                                phone: e.target.value,
+                              })
+                            }
+                            placeholder="1234567890"
+                          />
+                        </div>
                         <div className="flex items-center space-x-2">
                           <input
                             type="checkbox"
@@ -314,21 +381,36 @@ export default function Checkout() {
                           type="button"
                           onClick={async () => {
                             try {
-                              // Add API call to save new address
+                              if (
+                                !newAddress.addressLine1 ||
+                                !newAddress.city ||
+                                !newAddress.state ||
+                                !newAddress.pincode
+                              ) {
+                                toast.error('Please fill all required fields');
+                                return;
+                              }
+                              await dispatch(
+                                createAddress(newAddress)
+                              ).unwrap();
                               toast.success('Address added successfully');
                               setShowAddressForm(false);
                               setNewAddress({
+                                type: 'shipping',
+                                label: '',
                                 addressLine1: '',
                                 addressLine2: '',
+                                landmark: '',
                                 city: '',
                                 state: '',
                                 pincode: '',
                                 country: 'India',
+                                phone: '',
                                 isDefault: false,
                               });
                             } catch (err) {
                               console.error('Error adding address:', err);
-                              toast.error('Failed to add address');
+                              toast.error(err || 'Failed to add address');
                             }
                           }}
                           className="w-full"

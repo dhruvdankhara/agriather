@@ -36,14 +36,16 @@ export default function Dashboard() {
         orderAPI.getSupplierOrders({ limit: 5 }),
       ]);
 
-      const products = productsRes.data.data || [];
-      const orders = ordersRes.data.data || [];
+      console.log('🚀 ~ Dashboard.jsx:35 ~ fetchDashboardData ~ e:', ordersRes);
+
+      const products = productsRes.data.data.products || [];
+      const orders = ordersRes.data.data.orders || [];
 
       const totalRevenue = orders.reduce(
         (sum, order) => sum + (order.totalAmount || 0),
         0
       );
-      const pendingOrders = orders.filter((o) => o.status === 'Pending').length;
+      const pendingOrders = orders.filter((o) => o.status === 'pending').length;
 
       setStats({
         totalProducts: products.length,

@@ -212,6 +212,52 @@ export const getSupplierProductReviews = asyncHandler(async (req, res) => {
   );
 });
 
+// Get reviewable products for an order
+export const getOrderReviewableProducts = asyncHandler(async (req, res) => {
+  const { orderId } = req.params;
+
+  // Verify order is delivered and belongs to customer
+  const order = await Order.findOne({
+    _id: orderId,
+    customer: req.user._id,
+    status: ORDER_STATUS.DELIVERED,
+  }).populate("items.product", "name images averageRating totalReviews");
+
+  if (!order) {
+    throw new ApiError(404, "Order not found or not eligible for review");
+  }
+
+  // Get existing reviews for this customer
+  const existingReviews = await Review.find({
+    customer: req.user._id,
+    order: orderId,
+  });
+
+  const reviewedProductIds = new Set(
+    existingReviews.map((r) => r.product.toString())
+  );
+
+  // Add review info to each product
+  const productsWithReviewStatus = order.items.map((item) => ({
+    product: item.product,
+    quantity: item.quantity,
+    price: item.price,
+    subtotal: item.subtotal,
+    canReview: !reviewedProductIds.has(item.product._id.toString()),
+    existingReview: existingReviews.find(
+      (r) => r.product.toString() === item.product._id.toString()
+    ),
+  }));
+
+  return res.status(200).json(
+    new ApiResponse(200, "Reviewable products fetched successfully", {
+      orderId: order._id,
+      orderNumber: order.orderNumber,
+      products: productsWithReviewStatus,
+    })
+  );
+});
+
 // Helper function to update product rating
 async function updateProductRating(productId) {
   const reviews = await Review.find({ product: productId });

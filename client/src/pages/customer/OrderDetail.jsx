@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { fetchOrderById, cancelOrder } from '../../store/slices/orderSlice';
@@ -11,6 +11,9 @@ import {
 } from '../../components/ui/Card';
 import { Badge } from '../../components/ui/Badge';
 import { Spinner } from '../../components/ui/Spinner';
+import { Input } from '../../components/ui/Input';
+import { Label } from '../../components/ui/Label';
+import { Textarea } from '../../components/ui/Textarea';
 import { formatCurrency } from '../../lib/utils';
 import {
   Package,
@@ -21,20 +24,51 @@ import {
   CheckCircle,
   XCircle,
   ArrowLeft,
+  Star,
+  Edit,
+  Trash2,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { reviewAPI } from '../../services';
 
 export default function OrderDetail() {
   const dispatch = useDispatch();
   const navigate = useNavigate();
-  const { orderId } = useParams();
+  const { id: orderId } = useParams();
   const { currentOrder: order, loading } = useSelector((state) => state.order);
+
+  const [reviewableProducts, setReviewableProducts] = useState([]);
+  const [showReviewForm, setShowReviewForm] = useState(false);
+  const [selectedProduct, setSelectedProduct] = useState(null);
+  const [reviewForm, setReviewForm] = useState({
+    rating: 5,
+    title: '',
+    comment: '',
+  });
+  const [submittingReview, setSubmittingReview] = useState(false);
+  const [editingReview, setEditingReview] = useState(null);
 
   useEffect(() => {
     if (orderId) {
       dispatch(fetchOrderById(orderId));
     }
   }, [dispatch, orderId]);
+
+  useEffect(() => {
+    if (order && order.status === 'delivered') {
+      fetchReviewableProducts();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [order]);
+
+  const fetchReviewableProducts = async () => {
+    try {
+      const response = await reviewAPI.getOrderReviewableProducts(orderId);
+      setReviewableProducts(response.data.data.products);
+    } catch (error) {
+      console.error('Error fetching reviewable products:', error);
+    }
+  };
 
   const handleCancelOrder = async () => {
     if (!window.confirm('Are you sure you want to cancel this order?')) return;
@@ -46,6 +80,71 @@ export default function OrderDetail() {
       toast.success('Order cancelled successfully');
     } catch (error) {
       toast.error(error || 'Failed to cancel order');
+    }
+  };
+
+  const handleOpenReviewForm = (productItem) => {
+    setSelectedProduct(productItem);
+    if (productItem.existingReview) {
+      setEditingReview(productItem.existingReview);
+      setReviewForm({
+        rating: productItem.existingReview.rating,
+        title: productItem.existingReview.title || '',
+        comment: productItem.existingReview.comment,
+      });
+    } else {
+      setEditingReview(null);
+      setReviewForm({ rating: 5, title: '', comment: '' });
+    }
+    setShowReviewForm(true);
+  };
+
+  const handleCloseReviewForm = () => {
+    setShowReviewForm(false);
+    setSelectedProduct(null);
+    setEditingReview(null);
+    setReviewForm({ rating: 5, title: '', comment: '' });
+  };
+
+  const handleSubmitReview = async (e) => {
+    e.preventDefault();
+
+    if (!reviewForm.comment.trim()) {
+      toast.error('Please write a review comment');
+      return;
+    }
+
+    setSubmittingReview(true);
+    try {
+      if (editingReview) {
+        await reviewAPI.update(editingReview._id, reviewForm);
+        toast.success('Review updated successfully');
+      } else {
+        await reviewAPI.create({
+          productId: selectedProduct.product._id,
+          orderId: order._id,
+          ...reviewForm,
+        });
+        toast.success('Review submitted successfully');
+      }
+      handleCloseReviewForm();
+      fetchReviewableProducts();
+    } catch (error) {
+      toast.error(error.response?.data?.message || 'Failed to submit review');
+    } finally {
+      setSubmittingReview(false);
+    }
+  };
+
+  const handleDeleteReview = async (reviewId) => {
+    if (!window.confirm('Are you sure you want to delete this review?')) return;
+
+    try {
+      await reviewAPI.delete(reviewId);
+      toast.success('Review deleted successfully');
+      fetchReviewableProducts();
+    } catch (error) {
+      toast.error(error.response?.data?.message || 'Failed to delete review');
     }
   };
 
@@ -99,9 +198,7 @@ export default function OrderDetail() {
         <p className="mb-6 text-gray-600">
           The order you're looking for doesn't exist or has been removed
         </p>
-        <Button onClick={() => navigate('/customer/orders')}>
-          View All Orders
-        </Button>
+        <Button onClick={() => navigate('/orders')}>View All Orders</Button>
       </div>
     );
   }
@@ -110,7 +207,7 @@ export default function OrderDetail() {
     <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
       <Button
         variant="ghost"
-        onClick={() => navigate('/customer/orders')}
+        onClick={() => navigate('/orders')}
         className="mb-4"
       >
         <ArrowLeft className="mr-2 h-4 w-4" />
@@ -151,54 +248,129 @@ export default function OrderDetail() {
             <CardContent>
               <div className="space-y-4">
                 {order.items &&
-                  order.items.map((item, index) => (
-                    <div
-                      key={index}
-                      className="flex items-center gap-4 border-b pb-4 last:border-b-0 last:pb-0"
-                    >
-                      <div className="h-20 w-20 flex-shrink-0 rounded bg-gray-200">
-                        {item.product?.images?.[0] ? (
-                          <img
-                            src={item.product.images[0]}
-                            alt={item.product.name || 'Product'}
-                            className="h-full w-full rounded object-cover"
-                          />
-                        ) : (
-                          <div className="flex h-full items-center justify-center">
-                            <Package className="h-8 w-8 text-gray-400" />
+                  order.items.map((item, index) => {
+                    const reviewableItem = reviewableProducts.find(
+                      (p) => p.product._id === item.product?._id
+                    );
+
+                    return (
+                      <div
+                        key={index}
+                        className="border-b pb-4 last:border-b-0 last:pb-0"
+                      >
+                        <div className="flex items-center gap-4">
+                          <div className="h-20 w-20 flex-shrink-0 rounded bg-gray-200">
+                            {item.product?.images?.[0] ? (
+                              <img
+                                src={item.product.images[0]}
+                                alt={item.product.name || 'Product'}
+                                className="h-full w-full rounded object-cover"
+                              />
+                            ) : (
+                              <div className="flex h-full items-center justify-center">
+                                <Package className="h-8 w-8 text-gray-400" />
+                              </div>
+                            )}
+                          </div>
+                          <div className="flex-1">
+                            <Link
+                              to={`/customer/products/${item.product?._id}`}
+                              className="text-lg font-medium hover:text-blue-600"
+                            >
+                              {item.product?.name || 'Product'}
+                            </Link>
+                            <p className="text-sm text-gray-600">
+                              Price: {formatCurrency(item.price)}
+                            </p>
+                            <p className="text-sm text-gray-600">
+                              Quantity: {item.quantity}
+                            </p>
+                            {item.supplier && (
+                              <p className="text-sm text-gray-500">
+                                Supplier:{' '}
+                                {item.supplier.businessName ||
+                                  `${item.supplier.firstname} ${item.supplier.lastname}`}
+                              </p>
+                            )}
+                          </div>
+                          <div className="text-right">
+                            <p className="text-lg font-bold">
+                              {formatCurrency(
+                                item.subtotal || item.price * item.quantity
+                              )}
+                            </p>
+                          </div>
+                        </div>
+
+                        {/* Review Section for Delivered Orders */}
+                        {order.status === 'delivered' && reviewableItem && (
+                          <div className="mt-3 flex items-center gap-2">
+                            {reviewableItem.existingReview ? (
+                              <>
+                                <div className="flex-1 rounded-lg bg-green-50 p-3">
+                                  <div className="mb-1 flex items-center gap-2">
+                                    <div className="flex">
+                                      {[...Array(5)].map((_, i) => (
+                                        <Star
+                                          key={i}
+                                          className={`h-4 w-4 ${
+                                            i <
+                                            reviewableItem.existingReview.rating
+                                              ? 'fill-yellow-400 text-yellow-400'
+                                              : 'text-gray-300'
+                                          }`}
+                                        />
+                                      ))}
+                                    </div>
+                                    {reviewableItem.existingReview.title && (
+                                      <span className="text-sm font-medium">
+                                        {reviewableItem.existingReview.title}
+                                      </span>
+                                    )}
+                                  </div>
+                                  <p className="text-sm text-gray-700">
+                                    {reviewableItem.existingReview.comment}
+                                  </p>
+                                </div>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() =>
+                                    handleOpenReviewForm(reviewableItem)
+                                  }
+                                >
+                                  <Edit className="h-4 w-4" />
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="destructive"
+                                  onClick={() =>
+                                    handleDeleteReview(
+                                      reviewableItem.existingReview._id
+                                    )
+                                  }
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              </>
+                            ) : reviewableItem.canReview ? (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() =>
+                                  handleOpenReviewForm(reviewableItem)
+                                }
+                                className="gap-2"
+                              >
+                                <Star className="h-4 w-4" />
+                                Write a Review
+                              </Button>
+                            ) : null}
                           </div>
                         )}
                       </div>
-                      <div className="flex-1">
-                        <Link
-                          to={`/customer/products/${item.product?._id}`}
-                          className="text-lg font-medium hover:text-blue-600"
-                        >
-                          {item.product?.name || 'Product'}
-                        </Link>
-                        <p className="text-sm text-gray-600">
-                          Price: {formatCurrency(item.price)}
-                        </p>
-                        <p className="text-sm text-gray-600">
-                          Quantity: {item.quantity}
-                        </p>
-                        {item.supplier && (
-                          <p className="text-sm text-gray-500">
-                            Supplier:{' '}
-                            {item.supplier.businessName ||
-                              `${item.supplier.firstname} ${item.supplier.lastname}`}
-                          </p>
-                        )}
-                      </div>
-                      <div className="text-right">
-                        <p className="text-lg font-bold">
-                          {formatCurrency(
-                            item.subtotal || item.price * item.quantity
-                          )}
-                        </p>
-                      </div>
-                    </div>
-                  ))}
+                    );
+                  })}
               </div>
             </CardContent>
           </Card>
@@ -372,6 +544,137 @@ export default function OrderDetail() {
           )}
         </div>
       </div>
+
+      {/* Review Form Modal */}
+      {showReviewForm && selectedProduct && (
+        <div className="bg-opacity-50 fixed inset-0 z-50 flex items-center justify-center bg-black p-4">
+          <Card className="max-h-[90vh] w-full max-w-2xl overflow-y-auto">
+            <CardHeader>
+              <CardTitle className="flex items-center justify-between">
+                <span>{editingReview ? 'Edit Review' : 'Write a Review'}</span>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleCloseReviewForm}
+                >
+                  ✕
+                </Button>
+              </CardTitle>
+              <div className="mt-2 flex items-center gap-3">
+                <div className="h-16 w-16 flex-shrink-0 rounded bg-gray-200">
+                  {selectedProduct.product.images?.[0] ? (
+                    <img
+                      src={selectedProduct.product.images[0]}
+                      alt={selectedProduct.product.name}
+                      className="h-full w-full rounded object-cover"
+                    />
+                  ) : (
+                    <div className="flex h-full items-center justify-center">
+                      <Package className="h-6 w-6 text-gray-400" />
+                    </div>
+                  )}
+                </div>
+                <div>
+                  <h3 className="font-medium">
+                    {selectedProduct.product.name}
+                  </h3>
+                  <p className="text-sm text-gray-600">
+                    {formatCurrency(selectedProduct.price)}
+                  </p>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <form onSubmit={handleSubmitReview} className="space-y-4">
+                <div>
+                  <Label htmlFor="rating">Rating *</Label>
+                  <div className="mt-2 flex gap-2">
+                    {[1, 2, 3, 4, 5].map((star) => (
+                      <button
+                        key={star}
+                        type="button"
+                        onClick={() =>
+                          setReviewForm({ ...reviewForm, rating: star })
+                        }
+                        className="focus:outline-none"
+                      >
+                        <Star
+                          className={`h-8 w-8 cursor-pointer transition-colors ${
+                            star <= reviewForm.rating
+                              ? 'fill-yellow-400 text-yellow-400'
+                              : 'text-gray-300 hover:text-yellow-200'
+                          }`}
+                        />
+                      </button>
+                    ))}
+                    <span className="ml-2 text-lg font-medium">
+                      {reviewForm.rating} / 5
+                    </span>
+                  </div>
+                </div>
+
+                <div>
+                  <Label htmlFor="title">Review Title (Optional)</Label>
+                  <Input
+                    id="title"
+                    value={reviewForm.title}
+                    onChange={(e) =>
+                      setReviewForm({ ...reviewForm, title: e.target.value })
+                    }
+                    placeholder="Give your review a title"
+                    maxLength={100}
+                  />
+                </div>
+
+                <div>
+                  <Label htmlFor="comment">Review Comment *</Label>
+                  <Textarea
+                    id="comment"
+                    value={reviewForm.comment}
+                    onChange={(e) =>
+                      setReviewForm({ ...reviewForm, comment: e.target.value })
+                    }
+                    placeholder="Share your experience with this product..."
+                    rows={5}
+                    required
+                    maxLength={1000}
+                  />
+                  <p className="mt-1 text-xs text-gray-500">
+                    {reviewForm.comment.length} / 1000 characters
+                  </p>
+                </div>
+
+                <div className="flex gap-3">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={handleCloseReviewForm}
+                    className="flex-1"
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    type="submit"
+                    disabled={submittingReview}
+                    className="flex-1"
+                  >
+                    {submittingReview ? (
+                      <>
+                        <Spinner className="mr-2 h-4 w-4" />
+                        Submitting...
+                      </>
+                    ) : editingReview ? (
+                      'Update Review'
+                    ) : (
+                      'Submit Review'
+                    )}
+                  </Button>
+                </div>
+              </form>
+            </CardContent>
+          </Card>
+        </div>
+      )}
     </div>
   );
 }

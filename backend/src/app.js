@@ -33,6 +33,7 @@ import orderRoutes from "./routes/order.routes.js";
 import paymentRoutes from "./routes/payment.routes.js";
 import reviewRoutes from "./routes/review.routes.js";
 import reportRoutes from "./routes/report.routes.js";
+import addressRoutes from "./routes/address.routes.js";
 
 // API routes
 app.use("/api/v1/auth", authRoutes);
@@ -43,6 +44,7 @@ app.use("/api/v1/orders", orderRoutes);
 app.use("/api/v1/payments", paymentRoutes);
 app.use("/api/v1/reviews", reviewRoutes);
 app.use("/api/v1/reports", reportRoutes);
+app.use("/api/v1/addresses", addressRoutes);
 
 // Health check endpoint
 app.get("/api/v1/health", (req, res) => {

@@ -8,10 +8,16 @@ export const authAPI = {
   getCurrentUser: () => api.get('/auth/me'),
   updateProfile: (data) => api.put('/auth/profile', data),
   changePassword: (data) => api.put('/auth/change-password', data),
-  addShippingAddress: (data) => api.post('/auth/shipping-address', data),
-  updateShippingAddress: (id, data) =>
-    api.put(`/auth/shipping-address/${id}`, data),
-  deleteShippingAddress: (id) => api.delete(`/auth/shipping-address/${id}`),
+};
+
+// Address APIs
+export const addressAPI = {
+  getAll: (params) => api.get('/addresses', { params }),
+  getById: (id) => api.get(`/addresses/${id}`),
+  create: (data) => api.post('/addresses', data),
+  update: (id, data) => api.put(`/addresses/${id}`, data),
+  delete: (id) => api.delete(`/addresses/${id}`),
+  setDefault: (id) => api.patch(`/addresses/${id}/set-default`),
 };
 
 // Product APIs
@@ -85,6 +91,8 @@ export const reviewAPI = {
     api.get('/reviews/customer/my-reviews', { params }),
   getSupplierReviews: (params) =>
     api.get('/reviews/supplier/product-reviews', { params }),
+  getOrderReviewableProducts: (orderId) =>
+    api.get(`/reviews/order/${orderId}/reviewable`),
 };
 
 // Report APIs

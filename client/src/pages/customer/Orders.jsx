@@ -189,7 +189,7 @@ export default function Orders() {
 
                 <div className="mt-4 flex gap-2">
                   <Button asChild variant="outline" size="sm">
-                    <Link to={`/customer/orders/${order._id}`}>
+                    <Link to={`/orders/${order._id}`}>
                       <Eye className="mr-2 h-4 w-4" />
                       View Details
                     </Link>

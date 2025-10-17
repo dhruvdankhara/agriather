@@ -5,6 +5,7 @@ import Order from "../models/order.model.js";
 import Cart from "../models/cart.model.js";
 import Product from "../models/product.model.js";
 import Payment from "../models/payment.model.js";
+import Address from "../models/address.model.js";
 import { ORDER_STATUS, PAYMENT_STATUS } from "../constants.js";
 
 // Create order from cart
@@ -20,8 +21,12 @@ export const createOrder = asyncHandler(async (req, res) => {
     throw new ApiError(400, "Cart is empty");
   }
 
-  // Get shipping address
-  const shippingAddress = req.user.shippingAddresses.id(shippingAddressId);
+  // Get shipping address from Address model
+  const shippingAddress = await Address.findOne({
+    _id: shippingAddressId,
+    user: req.user._id,
+    isActive: true,
+  });
 
   if (!shippingAddress) {
     throw new ApiError(404, "Shipping address not found");

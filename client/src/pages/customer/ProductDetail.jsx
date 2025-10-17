@@ -8,7 +8,6 @@ import { Card, CardContent } from '../../components/ui/Card';
 import { Badge } from '../../components/ui/Badge';
 import { Input } from '../../components/ui/Input';
 import { Spinner } from '../../components/ui/Spinner';
-import { Textarea } from '../../components/ui/Textarea';
 import { formatCurrency } from '../../lib/utils';
 import {
   Package,
@@ -16,11 +15,12 @@ import {
   Star,
   Minus,
   Plus,
-  MapPin,
   Phone,
   Mail,
+  CheckCircle,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { reviewAPI } from '../../services';
 
 export default function ProductDetail() {
   const { id } = useParams();
@@ -30,12 +30,38 @@ export default function ProductDetail() {
   );
   const [quantity, setQuantity] = useState(1);
   const [selectedImage, setSelectedImage] = useState(0);
+  const [reviews, setReviews] = useState([]);
+  const [reviewsLoading, setReviewsLoading] = useState(false);
+  const [reviewStats, setReviewStats] = useState({
+    totalReviews: 0,
+    ratingDistribution: [],
+  });
 
   useEffect(() => {
     if (id) {
       dispatch(fetchProductById(id));
+      fetchReviews();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dispatch, id]);
+
+  const fetchReviews = async () => {
+    if (!id) return;
+
+    setReviewsLoading(true);
+    try {
+      const response = await reviewAPI.getProductReviews(id, { limit: 10 });
+      setReviews(response.data.data.reviews || []);
+      setReviewStats({
+        totalReviews: response.data.data.totalReviews || 0,
+        ratingDistribution: response.data.data.ratingDistribution || [],
+      });
+    } catch (error) {
+      console.error('Error fetching reviews:', error);
+    } finally {
+      setReviewsLoading(false);
+    }
+  };
 
   const handleAddToCart = async () => {
     try {
@@ -291,43 +317,160 @@ export default function ProductDetail() {
 
       {/* Reviews Section */}
       <div className="mt-12">
-        <h2 className="mb-6 text-2xl font-bold">Customer Reviews</h2>
-        {product.reviews && product.reviews.length > 0 ? (
+        <div className="mb-6 flex items-center justify-between">
+          <h2 className="text-2xl font-bold">Customer Reviews</h2>
+          {reviewStats.totalReviews > 0 && (
+            <div className="flex items-center gap-2">
+              <div className="flex">
+                {Array.from({ length: 5 }).map((_, i) => (
+                  <Star
+                    key={i}
+                    className={`h-5 w-5 ${
+                      i < Math.floor(product?.averageRating || 0)
+                        ? 'fill-yellow-400 text-yellow-400'
+                        : 'text-gray-300'
+                    }`}
+                  />
+                ))}
+              </div>
+              <span className="text-lg font-semibold">
+                {product?.averageRating?.toFixed(1) || '0.0'}
+              </span>
+              <span className="text-sm text-gray-600">
+                ({reviewStats.totalReviews}{' '}
+                {reviewStats.totalReviews === 1 ? 'review' : 'reviews'})
+              </span>
+            </div>
+          )}
+        </div>
+
+        {/* Rating Distribution */}
+        {reviewStats.ratingDistribution.length > 0 && (
+          <Card className="mb-6">
+            <CardContent className="pt-6">
+              <h3 className="mb-4 font-semibold">Rating Distribution</h3>
+              <div className="space-y-2">
+                {[5, 4, 3, 2, 1].map((rating) => {
+                  const ratingData = reviewStats.ratingDistribution.find(
+                    (r) => r._id === rating
+                  );
+                  const count = ratingData?.count || 0;
+                  const percentage = reviewStats.totalReviews
+                    ? (count / reviewStats.totalReviews) * 100
+                    : 0;
+
+                  return (
+                    <div key={rating} className="flex items-center gap-3">
+                      <div className="flex w-16 items-center gap-1">
+                        <span className="text-sm font-medium">{rating}</span>
+                        <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
+                      </div>
+                      <div className="flex-1">
+                        <div className="h-2 w-full overflow-hidden rounded-full bg-gray-200">
+                          <div
+                            className="h-full bg-yellow-400"
+                            style={{ width: `${percentage}%` }}
+                          />
+                        </div>
+                      </div>
+                      <span className="w-12 text-right text-sm text-gray-600">
+                        {count}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Reviews List */}
+        {reviewsLoading ? (
+          <div className="flex justify-center py-8">
+            <Spinner className="h-8 w-8" />
+          </div>
+        ) : reviews && reviews.length > 0 ? (
           <div className="space-y-4">
-            {product.reviews.map((review) => (
+            {reviews.map((review) => (
               <Card key={review._id}>
                 <CardContent className="pt-6">
-                  <div className="mb-2 flex items-start justify-between">
+                  <div className="mb-3 flex items-start justify-between">
                     <div>
-                      <p className="font-semibold">
-                        {review.customer?.fullName || 'Anonymous'}
-                      </p>
+                      <div className="flex items-center gap-2">
+                        <p className="font-semibold">
+                          {review.customer?.firstname}{' '}
+                          {review.customer?.lastname || 'Customer'}
+                        </p>
+                        {review.isVerifiedPurchase && (
+                          <Badge
+                            variant="outline"
+                            className="border-green-600 text-green-600"
+                          >
+                            <CheckCircle className="mr-1 h-3 w-3" />
+                            Verified Purchase
+                          </Badge>
+                        )}
+                      </div>
                       <div className="mt-1 flex items-center gap-2">
-                        {Array.from({ length: 5 }).map((_, i) => (
-                          <Star
-                            key={i}
-                            className={`h-4 w-4 ${
-                              i < review.rating
-                                ? 'fill-yellow-400 text-yellow-400'
-                                : 'text-gray-300'
-                            }`}
-                          />
-                        ))}
+                        <div className="flex">
+                          {Array.from({ length: 5 }).map((_, i) => (
+                            <Star
+                              key={i}
+                              className={`h-4 w-4 ${
+                                i < review.rating
+                                  ? 'fill-yellow-400 text-yellow-400'
+                                  : 'text-gray-300'
+                              }`}
+                            />
+                          ))}
+                        </div>
+                        <span className="text-sm text-gray-500">
+                          {new Date(review.createdAt).toLocaleDateString(
+                            'en-US',
+                            {
+                              year: 'numeric',
+                              month: 'long',
+                              day: 'numeric',
+                            }
+                          )}
+                        </span>
                       </div>
                     </div>
-                    <span className="text-sm text-gray-500">
-                      {new Date(review.createdAt).toLocaleDateString()}
-                    </span>
                   </div>
-                  <p className="text-gray-600">{review.review}</p>
+
+                  {review.title && (
+                    <h4 className="mb-2 font-semibold">{review.title}</h4>
+                  )}
+                  <p className="text-gray-700">{review.comment}</p>
+
+                  {review.images && review.images.length > 0 && (
+                    <div className="mt-3 flex gap-2">
+                      {review.images.map((image, index) => (
+                        <img
+                          key={index}
+                          src={image}
+                          alt={`Review ${index + 1}`}
+                          className="h-20 w-20 rounded object-cover"
+                        />
+                      ))}
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             ))}
           </div>
         ) : (
-          <p className="text-gray-600">
-            No reviews yet. Be the first to review this product!
-          </p>
+          <Card>
+            <CardContent className="py-12 text-center">
+              <Star className="mx-auto mb-4 h-12 w-12 text-gray-400" />
+              <p className="text-lg font-medium text-gray-900">
+                No reviews yet
+              </p>
+              <p className="mt-2 text-gray-600">
+                Be the first to review this product after purchasing!
+              </p>
+            </CardContent>
+          </Card>
         )}
       </div>
     </div>

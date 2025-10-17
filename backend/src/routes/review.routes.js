@@ -6,6 +6,7 @@ import {
   getProductReviews,
   getCustomerReviews,
   getSupplierProductReviews,
+  getOrderReviewableProducts,
 } from "../controllers/review.controller.js";
 import {
   verifyJWT,
@@ -27,6 +28,12 @@ router.get(
   verifyJWT,
   requireCustomer,
   getCustomerReviews
+);
+router.get(
+  "/order/:orderId/reviewable",
+  verifyJWT,
+  requireCustomer,
+  getOrderReviewableProducts
 );
 
 // Supplier routes
