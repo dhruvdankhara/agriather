@@ -6,11 +6,8 @@ import {
   Package,
   LogOut,
   Menu,
-  Search,
-  Heart,
   X,
   ChevronDown,
-  Bell,
   MapPin,
   Truck,
   Leaf,
@@ -27,7 +24,6 @@ export default function CustomerLayout() {
   const { user, isAuthenticated } = useSelector((state) => state.auth);
   const { totalQuantity } = useSelector((state) => state.cart);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
   const [scrolled, setScrolled] = useState(false);
 
   // Categories data
@@ -52,15 +48,6 @@ export default function CustomerLayout() {
   // Check if link is active
   const isActiveLink = (path) => {
     return location.pathname === path;
-  };
-
-  // Handle search
-  const handleSearch = (e) => {
-    e.preventDefault();
-    if (searchQuery.trim()) {
-      navigate(`/products?search=${encodeURIComponent(searchQuery)}`);
-      setSearchQuery('');
-    }
   };
 
   const handleLogout = () => {
@@ -116,23 +103,6 @@ export default function CustomerLayout() {
               </span>
             </Link>
 
-            {/* Search Bar - Desktop */}
-            <form
-              onSubmit={handleSearch}
-              className="hidden max-w-xl flex-1 md:block"
-            >
-              <div className="relative">
-                <input
-                  type="text"
-                  placeholder="Search for seeds, fertilizers, tools..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full rounded-full border border-gray-300 bg-gray-50 py-2 pr-4 pl-10 text-sm focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-500/20 focus:outline-none"
-                />
-                <Search className="absolute top-1/2 left-3 h-5 w-5 -translate-y-1/2 text-gray-400" />
-              </div>
-            </form>
-
             {/* Desktop Navigation */}
             <nav className="hidden items-center space-x-1 lg:flex">
               <Link
@@ -161,27 +131,29 @@ export default function CustomerLayout() {
                   <ChevronDown className="h-4 w-4" />
                 </button>
                 {/* Dropdown Menu */}
-                <div className="ring-opacity-5 absolute left-0 mt-2 hidden w-64 rounded-lg bg-white py-2 shadow-xl ring-1 ring-black group-hover:block">
-                  <Link
-                    to="/products"
-                    className="block px-4 py-2 text-sm font-medium text-gray-900 hover:bg-blue-50"
-                  >
-                    All Products
-                  </Link>
-                  <div className="my-2 border-t border-gray-100"></div>
-                  <div className="px-3 py-1 text-xs font-semibold text-gray-500">
-                    CATEGORIES
-                  </div>
-                  {categories.map((category) => (
+                <div className="ring-opacity-5 absolute left-0 hidden pt-2 group-hover:block">
+                  <div className="ring-opacity-5 w-64 rounded-lg bg-white py-2 shadow-xl ring-1 ring-black">
                     <Link
-                      key={category.name}
-                      to={category.path}
-                      className="flex items-center space-x-3 px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-600"
+                      to="/products"
+                      className="block px-4 py-2 text-sm font-medium text-gray-900 hover:bg-blue-50"
                     >
-                      <span className="text-lg">{category.icon}</span>
-                      <span>{category.name}</span>
+                      All Products
                     </Link>
-                  ))}
+                    <div className="my-2 border-t border-gray-100"></div>
+                    <div className="px-3 py-1 text-xs font-semibold text-gray-500">
+                      CATEGORIES
+                    </div>
+                    {categories.map((category) => (
+                      <Link
+                        key={category.name}
+                        to={category.path}
+                        className="flex items-center space-x-3 px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-600"
+                      >
+                        <span className="text-lg">{category.icon}</span>
+                        <span>{category.name}</span>
+                      </Link>
+                    ))}
+                  </div>
                 </div>
               </div>
 
@@ -204,24 +176,8 @@ export default function CustomerLayout() {
 
             {/* Actions */}
             <div className="flex items-center space-x-2">
-              {/* Search Icon - Mobile */}
-              <button
-                onClick={() => navigate('/products')}
-                className="rounded-lg p-2 text-gray-700 hover:bg-gray-100 hover:text-blue-600 md:hidden"
-              >
-                <Search className="h-5 w-5" />
-              </button>
-
               {isAuthenticated ? (
                 <>
-                  {/* Wishlist */}
-                  <button className="relative rounded-lg p-2 text-gray-700 transition-colors hover:bg-gray-100 hover:text-red-500">
-                    <Heart className="h-5 w-5" />
-                    <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-xs text-white">
-                      0
-                    </span>
-                  </button>
-
                   {/* Cart */}
                   <Link
                     to="/cart"
@@ -235,12 +191,6 @@ export default function CustomerLayout() {
                     )}
                   </Link>
 
-                  {/* Notifications */}
-                  <button className="relative rounded-lg p-2 text-gray-700 transition-colors hover:bg-gray-100 hover:text-blue-600">
-                    <Bell className="h-5 w-5" />
-                    <span className="absolute top-1.5 right-1.5 h-2 w-2 rounded-full bg-red-500"></span>
-                  </button>
-
                   {/* User Menu */}
                   <div className="group relative hidden lg:block">
                     <button className="flex items-center space-x-2 rounded-lg px-3 py-2 text-gray-700 transition-colors hover:bg-gray-100 hover:text-blue-600">
@@ -250,44 +200,40 @@ export default function CustomerLayout() {
                       <span className="text-sm font-medium">{user?.name}</span>
                       <ChevronDown className="h-4 w-4" />
                     </button>
-                    <div className="ring-opacity-5 absolute right-0 mt-2 hidden w-56 rounded-lg bg-white py-2 shadow-xl ring-1 ring-black group-hover:block">
-                      <div className="border-b border-gray-100 px-4 py-3">
-                        <p className="text-sm font-medium text-gray-900">
-                          {user?.name}
-                        </p>
-                        <p className="truncate text-xs text-gray-500">
-                          {user?.email}
-                        </p>
+                    <div className="ring-opacity-5 absolute right-0 hidden pt-2 group-hover:block">
+                      <div className="ring-opacity-5 w-56 rounded-lg bg-white py-2 shadow-xl ring-1 ring-black">
+                        <div className="border-b border-gray-100 px-4 py-3">
+                          <p className="text-sm font-medium text-gray-900">
+                            {user?.name}
+                          </p>
+                          <p className="truncate text-xs text-gray-500">
+                            {user?.email}
+                          </p>
+                        </div>
+                        <Link
+                          to="/profile"
+                          className="flex items-center space-x-2 px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-600"
+                        >
+                          <User className="h-4 w-4" />
+                          <span>My Profile</span>
+                        </Link>
+                        <Link
+                          to="/orders"
+                          className="flex items-center space-x-2 px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-600"
+                        >
+                          <Package className="h-4 w-4" />
+                          <span>My Orders</span>
+                        </Link>
+
+                        <div className="my-1 border-t border-gray-100"></div>
+                        <button
+                          onClick={handleLogout}
+                          className="flex w-full items-center space-x-2 px-4 py-2 text-sm text-red-600 hover:bg-red-50"
+                        >
+                          <LogOut className="h-4 w-4" />
+                          <span>Logout</span>
+                        </button>
                       </div>
-                      <Link
-                        to="/profile"
-                        className="flex items-center space-x-2 px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-600"
-                      >
-                        <User className="h-4 w-4" />
-                        <span>My Profile</span>
-                      </Link>
-                      <Link
-                        to="/orders"
-                        className="flex items-center space-x-2 px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-600"
-                      >
-                        <Package className="h-4 w-4" />
-                        <span>My Orders</span>
-                      </Link>
-                      <Link
-                        to="/reviews"
-                        className="flex items-center space-x-2 px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-600"
-                      >
-                        <Heart className="h-4 w-4" />
-                        <span>My Reviews</span>
-                      </Link>
-                      <div className="my-1 border-t border-gray-100"></div>
-                      <button
-                        onClick={handleLogout}
-                        className="flex w-full items-center space-x-2 px-4 py-2 text-sm text-red-600 hover:bg-red-50"
-                      >
-                        <LogOut className="h-4 w-4" />
-                        <span>Logout</span>
-                      </button>
                     </div>
                   </div>
                 </>
@@ -328,22 +274,6 @@ export default function CustomerLayout() {
         {/* Mobile Menu */}
         {mobileMenuOpen && (
           <div className="border-t border-gray-200 bg-white lg:hidden">
-            {/* Mobile Search */}
-            <div className="border-b border-gray-100 p-4 md:hidden">
-              <form onSubmit={handleSearch}>
-                <div className="relative">
-                  <input
-                    type="text"
-                    placeholder="Search products..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    className="w-full rounded-lg border border-gray-300 bg-gray-50 py-2 pr-4 pl-10 text-sm focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-500/20 focus:outline-none"
-                  />
-                  <Search className="absolute top-1/2 left-3 h-5 w-5 -translate-y-1/2 text-gray-400" />
-                </div>
-              </form>
-            </div>
-
             <div className="max-h-[calc(100vh-12rem)] overflow-y-auto">
               <div className="space-y-1 px-3 py-3">
                 <Link

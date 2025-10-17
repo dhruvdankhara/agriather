@@ -25,7 +25,7 @@ import toast from 'react-hot-toast';
 export default function ProductDetail() {
   const { id } = useParams();
   const dispatch = useDispatch();
-  const { currentProduct: product, loading } = useSelector(
+  const { selectedProduct: product, loading } = useSelector(
     (state) => state.product
   );
   const [quantity, setQuantity] = useState(1);
@@ -42,7 +42,7 @@ export default function ProductDetail() {
       await dispatch(addToCart({ productId: id, quantity })).unwrap();
       toast.success(`Added ${quantity} item(s) to cart!`);
     } catch (error) {
-      toast.error(error || 'Failed to add to cart');
+      toast.error(error?.message || error || 'Failed to add to cart');
     }
   };
 

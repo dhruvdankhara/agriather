@@ -1,6 +1,5 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import { cartAPI } from '../../services';
-import toast from 'react-hot-toast';
 
 // Async thunks
 export const fetchCart = createAsyncThunk(
@@ -20,39 +19,39 @@ export const addToCart = createAsyncThunk(
   async (data, { rejectWithValue }) => {
     try {
       const response = await cartAPI.addItem(data);
-      toast.success('Item added to cart');
       return response.data.data;
     } catch (error) {
-      toast.error(error.response?.data?.message || 'Failed to add item');
-      return rejectWithValue(error.response?.data);
+      return rejectWithValue(
+        error.response?.data?.message || 'Failed to add item'
+      );
     }
   }
 );
 
 export const updateCartItem = createAsyncThunk(
   'cart/updateCartItem',
-  async ({ id, data }, { rejectWithValue }) => {
+  async ({ itemId, quantity }, { rejectWithValue }) => {
     try {
-      const response = await cartAPI.updateItem(id, data);
-      toast.success('Cart updated');
+      const response = await cartAPI.updateItem(itemId, { quantity });
       return response.data.data;
     } catch (error) {
-      toast.error(error.response?.data?.message || 'Failed to update cart');
-      return rejectWithValue(error.response?.data);
+      return rejectWithValue(
+        error.response?.data?.message || 'Failed to update cart'
+      );
     }
   }
 );
 
 export const removeFromCart = createAsyncThunk(
   'cart/removeFromCart',
-  async (id, { rejectWithValue }) => {
+  async (itemId, { rejectWithValue }) => {
     try {
-      const response = await cartAPI.removeItem(id);
-      toast.success('Item removed from cart');
+      const response = await cartAPI.removeItem(itemId);
       return response.data.data;
     } catch (error) {
-      toast.error(error.response?.data?.message || 'Failed to remove item');
-      return rejectWithValue(error.response?.data);
+      return rejectWithValue(
+        error.response?.data?.message || 'Failed to remove item'
+      );
     }
   }
 );
@@ -62,11 +61,11 @@ export const clearCart = createAsyncThunk(
   async (_, { rejectWithValue }) => {
     try {
       const response = await cartAPI.clear();
-      toast.success('Cart cleared');
       return response.data.data;
     } catch (error) {
-      toast.error(error.response?.data?.message || 'Failed to clear cart');
-      return rejectWithValue(error.response?.data);
+      return rejectWithValue(
+        error.response?.data?.message || 'Failed to clear cart'
+      );
     }
   }
 );

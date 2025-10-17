@@ -24,23 +24,23 @@ export default function Cart() {
     dispatch(fetchCart());
   }, [dispatch]);
 
-  const handleUpdateQuantity = async (productId, newQuantity) => {
+  const handleUpdateQuantity = async (itemId, newQuantity) => {
     if (newQuantity < 1) return;
     try {
       await dispatch(
-        updateCartItem({ productId, quantity: newQuantity })
+        updateCartItem({ itemId, quantity: newQuantity })
       ).unwrap();
     } catch (error) {
-      toast.error(error || 'Failed to update quantity');
+      toast.error(error?.message || 'Failed to update quantity');
     }
   };
 
-  const handleRemoveItem = async (productId) => {
+  const handleRemoveItem = async (itemId) => {
     try {
-      await dispatch(removeFromCart(productId)).unwrap();
+      await dispatch(removeFromCart(itemId)).unwrap();
       toast.success('Item removed from cart');
     } catch (error) {
-      toast.error(error || 'Failed to remove item');
+      toast.error(error?.message || 'Failed to remove item');
     }
   };
 
@@ -50,7 +50,7 @@ export default function Cart() {
       await dispatch(clearCart()).unwrap();
       toast.success('Cart cleared');
     } catch (error) {
-      toast.error(error || 'Failed to clear cart');
+      toast.error(error?.message || error || 'Failed to clear cart');
     }
   };
 
@@ -146,7 +146,7 @@ export default function Cart() {
                     <Button
                       variant="ghost"
                       size="sm"
-                      onClick={() => handleRemoveItem(item.product._id)}
+                      onClick={() => handleRemoveItem(item._id)}
                       className="text-red-600 hover:text-red-700"
                     >
                       <Trash2 className="h-4 w-4" />
@@ -156,10 +156,7 @@ export default function Cart() {
                         variant="outline"
                         size="sm"
                         onClick={() =>
-                          handleUpdateQuantity(
-                            item.product._id,
-                            item.quantity - 1
-                          )
+                          handleUpdateQuantity(item._id, item.quantity - 1)
                         }
                         disabled={item.quantity <= 1}
                       >
@@ -171,7 +168,7 @@ export default function Cart() {
                         onChange={(e) => {
                           const val = parseInt(e.target.value) || 1;
                           handleUpdateQuantity(
-                            item.product._id,
+                            item._id,
                             Math.min(Math.max(1, val), item.product.stock)
                           );
                         }}
@@ -183,10 +180,7 @@ export default function Cart() {
                         variant="outline"
                         size="sm"
                         onClick={() =>
-                          handleUpdateQuantity(
-                            item.product._id,
-                            item.quantity + 1
-                          )
+                          handleUpdateQuantity(item._id, item.quantity + 1)
                         }
                         disabled={item.quantity >= item.product.stock}
                       >

@@ -142,7 +142,7 @@ export default function Products() {
       await dispatch(addToCart({ productId, quantity: 1 })).unwrap();
       toast.success('Added to cart!');
     } catch (error) {
-      toast.error(error || 'Failed to add to cart');
+      toast.error(error?.message || error || 'Failed to add to cart');
     }
   };
 
