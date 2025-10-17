@@ -48,10 +48,16 @@ const paymentSchema = new mongoose.Schema(
 // Generate transaction ID before saving
 paymentSchema.pre("save", async function (next) {
   if (!this.transactionId) {
-    this.transactionId = `TXN${Date.now()}${Math.random()
-      .toString(36)
-      .substring(2, 9)
-      .toUpperCase()}`;
+    try {
+      this.transactionId = `TXN${Date.now()}${Math.random()
+        .toString(36)
+        .substring(2, 9)
+        .toUpperCase()}`;
+    } catch (error) {
+      console.error("Error generating transaction ID:", error);
+      // Fallback to timestamp-based ID
+      this.transactionId = `TXN${Date.now()}`;
+    }
   }
   next();
 });

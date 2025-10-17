@@ -33,7 +33,7 @@ export default function Orders() {
     try {
       const response = await orderAPI.getSupplierOrders();
       const data = response.data.data;
-      setOrders(Array.isArray(data) ? data : []);
+      setOrders(Array.isArray(data.orders) ? data.orders : []);
     } catch {
       toast.error('Failed to fetch orders');
       setOrders([]);
@@ -44,7 +44,9 @@ export default function Orders() {
 
   const handleUpdateStatus = async (orderId, newStatus) => {
     try {
-      await orderAPI.updateOrderStatus(orderId, { status: newStatus });
+      await orderAPI.updateOrderStatus(orderId, {
+        status: newStatus,
+      });
       toast.success('Order status updated');
       fetchOrders();
     } catch (error) {
@@ -115,8 +117,8 @@ export default function Orders() {
                     <Badge className={getStatusColor(order.status)}>
                       {order.status}
                     </Badge>
-                    {order.status !== 'Delivered' &&
-                      order.status !== 'Cancelled' && (
+                    {order.status !== 'delivered' &&
+                      order.status !== 'cancelled' && (
                         <Select
                           value={order.status}
                           onValueChange={(value) =>
@@ -127,10 +129,10 @@ export default function Orders() {
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="Pending">Pending</SelectItem>
-                            <SelectItem value="Confirmed">Confirmed</SelectItem>
-                            <SelectItem value="Shipped">Shipped</SelectItem>
-                            <SelectItem value="Delivered">Delivered</SelectItem>
+                            <SelectItem value="pending">Pending</SelectItem>
+                            <SelectItem value="confirmed">Confirmed</SelectItem>
+                            <SelectItem value="shipped">Shipped</SelectItem>
+                            <SelectItem value="delivered">Delivered</SelectItem>
                           </SelectContent>
                         </Select>
                       )}

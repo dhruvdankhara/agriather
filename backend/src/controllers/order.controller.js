@@ -71,8 +71,16 @@ export const createOrder = asyncHandler(async (req, res) => {
   const shippingCharges = totalAmount > 500 ? 0 : 50; // Free shipping above 500
   const finalAmount = totalAmount + tax + shippingCharges;
 
+  // Generate order number
+  const orderCount = await Order.countDocuments();
+  const orderNumber = `ORD${Date.now()}${String(orderCount + 1).padStart(
+    4,
+    "0"
+  )}`;
+
   // Create order
   const order = await Order.create({
+    orderNumber,
     customer: req.user._id,
     items: orderItems,
     shippingAddress: {
@@ -97,7 +105,13 @@ export const createOrder = asyncHandler(async (req, res) => {
   });
 
   // Create payment record
+  const transactionId = `TXN${Date.now()}${Math.random()
+    .toString(36)
+    .substring(2, 9)
+    .toUpperCase()}`;
+
   const payment = await Payment.create({
+    transactionId,
     order: order._id,
     customer: req.user._id,
     amount: finalAmount,
@@ -118,14 +132,12 @@ export const createOrder = asyncHandler(async (req, res) => {
     .populate("items.supplier", "firstname lastname businessName")
     .populate("paymentId");
 
-  return res
-    .status(201)
-    .json(
-      new ApiResponse(201, "Order created successfully", {
-        order: populatedOrder,
-        payment,
-      })
-    );
+  return res.status(201).json(
+    new ApiResponse(201, "Order created successfully", {
+      order: populatedOrder,
+      payment,
+    })
+  );
 });
 
 // Get customer's orders

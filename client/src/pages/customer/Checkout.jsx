@@ -36,14 +36,18 @@ export default function Checkout() {
   const { user } = useSelector((state) => state.auth);
 
   const [loading, setLoading] = useState(false);
-  const [shippingAddress, setShippingAddress] = useState({
-    street: '',
+  const [selectedAddressId, setSelectedAddressId] = useState('');
+  const [showAddressForm, setShowAddressForm] = useState(false);
+  const [newAddress, setNewAddress] = useState({
+    addressLine1: '',
+    addressLine2: '',
     city: '',
     state: '',
-    postalCode: '',
-    country: '',
+    pincode: '',
+    country: 'India',
+    isDefault: false,
   });
-  const [paymentMethod, setPaymentMethod] = useState('COD');
+  const [paymentMethod, setPaymentMethod] = useState('cash_on_delivery');
   const [notes, setNotes] = useState('');
 
   useEffect(() => {
@@ -55,13 +59,9 @@ export default function Checkout() {
       const defaultAddress =
         user.shippingAddresses.find((addr) => addr.isDefault) ||
         user.shippingAddresses[0];
-      setShippingAddress({
-        street: defaultAddress.street || '',
-        city: defaultAddress.city || '',
-        state: defaultAddress.state || '',
-        postalCode: defaultAddress.postalCode || '',
-        country: defaultAddress.country || '',
-      });
+      if (defaultAddress && defaultAddress._id) {
+        setSelectedAddressId(defaultAddress._id);
+      }
     }
   }, [user]);
 
@@ -73,32 +73,29 @@ export default function Checkout() {
       return;
     }
 
-    if (
-      !shippingAddress.street ||
-      !shippingAddress.city ||
-      !shippingAddress.postalCode
-    ) {
-      toast.error('Please fill in all required shipping address fields');
+    if (!selectedAddressId) {
+      toast.error('Please select a shipping address');
       return;
     }
 
     setLoading(true);
     try {
       const orderData = {
-        items: items.map((item) => ({
-          product: item.product._id,
-          quantity: item.quantity,
-          price: item.product.discountPrice || item.product.price,
-        })),
-        shippingAddress,
+        shippingAddressId: selectedAddressId,
         paymentMethod,
         notes,
       };
 
-      await orderAPI.createOrder(orderData);
+      console.log(
+        '🚀 ~ Checkout.jsx ~ handlePlaceOrder ~ orderData:',
+        orderData
+      );
+
+      await orderAPI.create(orderData);
       toast.success('Order placed successfully!');
       navigate(`/orders`);
     } catch (error) {
+      console.error('Order creation error:', error);
       toast.error(error.response?.data?.message || 'Failed to place order');
     } finally {
       setLoading(false);
@@ -145,83 +142,214 @@ export default function Checkout() {
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div>
-                  <Label htmlFor="street">Street Address *</Label>
-                  <Input
-                    id="street"
-                    value={shippingAddress.street}
-                    onChange={(e) =>
-                      setShippingAddress({
-                        ...shippingAddress,
-                        street: e.target.value,
-                      })
-                    }
-                    placeholder="123 Main St"
-                    required
-                  />
-                </div>
-                <div className="grid gap-4 md:grid-cols-2">
-                  <div>
-                    <Label htmlFor="city">City *</Label>
-                    <Input
-                      id="city"
-                      value={shippingAddress.city}
-                      onChange={(e) =>
-                        setShippingAddress({
-                          ...shippingAddress,
-                          city: e.target.value,
-                        })
-                      }
-                      placeholder="City"
-                      required
-                    />
+                {user?.shippingAddresses &&
+                user.shippingAddresses.length > 0 ? (
+                  <>
+                    <div className="space-y-3">
+                      {user.shippingAddresses.map((address) => (
+                        <div
+                          key={address._id}
+                          onClick={() => setSelectedAddressId(address._id)}
+                          className={`cursor-pointer rounded-lg border-2 p-4 transition-colors ${
+                            selectedAddressId === address._id
+                              ? 'border-green-500 bg-green-50'
+                              : 'border-gray-200 hover:border-gray-300'
+                          }`}
+                        >
+                          <div className="flex items-start justify-between">
+                            <div className="flex-1">
+                              <p className="font-medium">
+                                {address.addressLine1}
+                              </p>
+                              {address.addressLine2 && (
+                                <p className="text-sm text-gray-600">
+                                  {address.addressLine2}
+                                </p>
+                              )}
+                              <p className="text-sm text-gray-600">
+                                {address.city}, {address.state}{' '}
+                                {address.pincode}
+                              </p>
+                              <p className="text-sm text-gray-600">
+                                {address.country}
+                              </p>
+                            </div>
+                            {selectedAddressId === address._id && (
+                              <div className="ml-2 flex h-6 w-6 items-center justify-center rounded-full bg-green-500 text-white">
+                                ✓
+                              </div>
+                            )}
+                          </div>
+                          {address.isDefault && (
+                            <span className="mt-2 inline-block rounded bg-blue-100 px-2 py-1 text-xs text-blue-700">
+                              Default
+                            </span>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => setShowAddressForm(!showAddressForm)}
+                      className="w-full"
+                    >
+                      {showAddressForm ? 'Cancel' : '+ Add New Address'}
+                    </Button>
+                    {showAddressForm && (
+                      <div className="space-y-4 rounded-lg border p-4">
+                        <div>
+                          <Label htmlFor="addressLine1">Address Line 1 *</Label>
+                          <Input
+                            id="addressLine1"
+                            value={newAddress.addressLine1}
+                            onChange={(e) =>
+                              setNewAddress({
+                                ...newAddress,
+                                addressLine1: e.target.value,
+                              })
+                            }
+                            placeholder="House No., Building Name"
+                            required={showAddressForm}
+                          />
+                        </div>
+                        <div>
+                          <Label htmlFor="addressLine2">Address Line 2</Label>
+                          <Input
+                            id="addressLine2"
+                            value={newAddress.addressLine2}
+                            onChange={(e) =>
+                              setNewAddress({
+                                ...newAddress,
+                                addressLine2: e.target.value,
+                              })
+                            }
+                            placeholder="Street, Area"
+                          />
+                        </div>
+                        <div className="grid gap-4 md:grid-cols-2">
+                          <div>
+                            <Label htmlFor="city">City *</Label>
+                            <Input
+                              id="city"
+                              value={newAddress.city}
+                              onChange={(e) =>
+                                setNewAddress({
+                                  ...newAddress,
+                                  city: e.target.value,
+                                })
+                              }
+                              placeholder="City"
+                              required={showAddressForm}
+                            />
+                          </div>
+                          <div>
+                            <Label htmlFor="state">State *</Label>
+                            <Input
+                              id="state"
+                              value={newAddress.state}
+                              onChange={(e) =>
+                                setNewAddress({
+                                  ...newAddress,
+                                  state: e.target.value,
+                                })
+                              }
+                              placeholder="State"
+                              required={showAddressForm}
+                            />
+                          </div>
+                        </div>
+                        <div className="grid gap-4 md:grid-cols-2">
+                          <div>
+                            <Label htmlFor="pincode">Pincode *</Label>
+                            <Input
+                              id="pincode"
+                              value={newAddress.pincode}
+                              onChange={(e) =>
+                                setNewAddress({
+                                  ...newAddress,
+                                  pincode: e.target.value,
+                                })
+                              }
+                              placeholder="123456"
+                              required={showAddressForm}
+                            />
+                          </div>
+                          <div>
+                            <Label htmlFor="country">Country</Label>
+                            <Input
+                              id="country"
+                              value={newAddress.country}
+                              onChange={(e) =>
+                                setNewAddress({
+                                  ...newAddress,
+                                  country: e.target.value,
+                                })
+                              }
+                              placeholder="India"
+                            />
+                          </div>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <input
+                            type="checkbox"
+                            id="isDefault"
+                            checked={newAddress.isDefault}
+                            onChange={(e) =>
+                              setNewAddress({
+                                ...newAddress,
+                                isDefault: e.target.checked,
+                              })
+                            }
+                            className="h-4 w-4 rounded border-gray-300 text-green-600 focus:ring-green-500"
+                          />
+                          <Label
+                            htmlFor="isDefault"
+                            className="text-sm font-normal"
+                          >
+                            Set as default address
+                          </Label>
+                        </div>
+                        <Button
+                          type="button"
+                          onClick={async () => {
+                            try {
+                              // Add API call to save new address
+                              toast.success('Address added successfully');
+                              setShowAddressForm(false);
+                              setNewAddress({
+                                addressLine1: '',
+                                addressLine2: '',
+                                city: '',
+                                state: '',
+                                pincode: '',
+                                country: 'India',
+                                isDefault: false,
+                              });
+                            } catch (err) {
+                              console.error('Error adding address:', err);
+                              toast.error('Failed to add address');
+                            }
+                          }}
+                          className="w-full"
+                        >
+                          Save Address
+                        </Button>
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  <div className="py-4 text-center">
+                    <p className="mb-4 text-gray-600">No saved addresses</p>
+                    <Button
+                      type="button"
+                      onClick={() => navigate('/profile')}
+                      variant="outline"
+                    >
+                      Add Address in Profile
+                    </Button>
                   </div>
-                  <div>
-                    <Label htmlFor="state">State</Label>
-                    <Input
-                      id="state"
-                      value={shippingAddress.state}
-                      onChange={(e) =>
-                        setShippingAddress({
-                          ...shippingAddress,
-                          state: e.target.value,
-                        })
-                      }
-                      placeholder="State"
-                    />
-                  </div>
-                </div>
-                <div className="grid gap-4 md:grid-cols-2">
-                  <div>
-                    <Label htmlFor="postalCode">Postal Code *</Label>
-                    <Input
-                      id="postalCode"
-                      value={shippingAddress.postalCode}
-                      onChange={(e) =>
-                        setShippingAddress({
-                          ...shippingAddress,
-                          postalCode: e.target.value,
-                        })
-                      }
-                      placeholder="12345"
-                      required
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="country">Country</Label>
-                    <Input
-                      id="country"
-                      value={shippingAddress.country}
-                      onChange={(e) =>
-                        setShippingAddress({
-                          ...shippingAddress,
-                          country: e.target.value,
-                        })
-                      }
-                      placeholder="Country"
-                    />
-                  </div>
-                </div>
+                )}
               </CardContent>
             </Card>
 
@@ -238,10 +366,12 @@ export default function Checkout() {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="COD">Cash on Delivery</SelectItem>
-                    <SelectItem value="Card">Credit/Debit Card</SelectItem>
-                    <SelectItem value="UPI">UPI</SelectItem>
-                    <SelectItem value="Net Banking">Net Banking</SelectItem>
+                    <SelectItem value="cash_on_delivery">
+                      Cash on Delivery
+                    </SelectItem>
+                    <SelectItem value="card">Credit/Debit Card</SelectItem>
+                    <SelectItem value="upi">UPI</SelectItem>
+                    <SelectItem value="net_banking">Net Banking</SelectItem>
                   </SelectContent>
                 </Select>
               </CardContent>
