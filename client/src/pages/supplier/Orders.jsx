@@ -55,14 +55,16 @@ export default function Orders() {
   };
 
   const getStatusColor = (status) => {
+    const statusLower = status?.toLowerCase();
     const colors = {
-      Pending: 'bg-yellow-100 text-yellow-800',
-      Confirmed: 'bg-blue-100 text-blue-800',
-      Shipped: 'bg-purple-100 text-purple-800',
-      Delivered: 'bg-green-100 text-green-800',
-      Cancelled: 'bg-red-100 text-red-800',
+      pending: 'bg-yellow-100 text-yellow-800',
+      confirmed: 'bg-blue-100 text-blue-800',
+      processing: 'bg-cyan-100 text-cyan-800',
+      shipped: 'bg-purple-100 text-purple-800',
+      delivered: 'bg-green-100 text-green-800',
+      cancelled: 'bg-red-100 text-red-800',
     };
-    return colors[status] || 'bg-gray-100 text-gray-800';
+    return colors[statusLower] || 'bg-gray-100 text-gray-800';
   };
 
   if (loading) {
@@ -107,18 +109,21 @@ export default function Orders() {
                 <div className="flex items-start justify-between">
                   <div>
                     <CardTitle className="text-lg">
-                      Order #{order._id.slice(-8).toUpperCase()}
+                      Order #
+                      {order.orderNumber || order._id.slice(-8).toUpperCase()}
                     </CardTitle>
                     <p className="mt-1 text-sm text-gray-600">
-                      {new Date(order.createdAt).toLocaleDateString()}
+                      {new Date(order.createdAt).toLocaleDateString()} at{' '}
+                      {new Date(order.createdAt).toLocaleTimeString()}
                     </p>
                   </div>
                   <div className="flex items-center gap-3">
                     <Badge className={getStatusColor(order.status)}>
-                      {order.status}
+                      {order.status?.charAt(0).toUpperCase() +
+                        order.status?.slice(1).toLowerCase()}
                     </Badge>
-                    {order.status !== 'delivered' &&
-                      order.status !== 'cancelled' && (
+                    {order.status?.toLowerCase() !== 'delivered' &&
+                      order.status?.toLowerCase() !== 'cancelled' && (
                         <Select
                           value={order.status}
                           onValueChange={(value) =>
@@ -183,8 +188,16 @@ export default function Orders() {
                   <div>
                     <p className="text-sm text-gray-600">Customer</p>
                     <p className="font-medium">
-                      {order.customer?.fullName || 'N/A'}
+                      {order.customer
+                        ? `${order.customer.firstname || ''} ${order.customer.lastname || ''}`.trim() ||
+                          order.customer.email
+                        : 'N/A'}
                     </p>
+                    {order.customer?.phone && (
+                      <p className="text-sm text-gray-500">
+                        {order.customer.phone}
+                      </p>
+                    )}
                   </div>
                   <div className="text-right">
                     <p className="text-sm text-gray-600">Total Amount</p>
@@ -196,12 +209,29 @@ export default function Orders() {
 
                 <div className="mt-4 rounded-lg bg-gray-50 p-4">
                   <p className="mb-2 font-semibold">Shipping Address:</p>
-                  <p className="text-sm text-gray-600">
-                    {order.shippingAddress.street}, {order.shippingAddress.city}
-                    {order.shippingAddress.state &&
-                      `, ${order.shippingAddress.state}`}
-                    {' - '} {order.shippingAddress.postalCode}
-                  </p>
+                  {order.shippingAddress ? (
+                    <p className="text-sm text-gray-600">
+                      {order.shippingAddress.addressLine1}
+                      {order.shippingAddress.addressLine2 &&
+                        `, ${order.shippingAddress.addressLine2}`}
+                      {order.shippingAddress.landmark &&
+                        ` (Near ${order.shippingAddress.landmark})`}
+                      <br />
+                      {order.shippingAddress.city},{' '}
+                      {order.shippingAddress.state} -{' '}
+                      {order.shippingAddress.pincode}
+                      <br />
+                      {order.shippingAddress.country}
+                      {order.shippingAddress.phone && (
+                        <>
+                          <br />
+                          Phone: {order.shippingAddress.phone}
+                        </>
+                      )}
+                    </p>
+                  ) : (
+                    <p className="text-sm text-gray-600">No address provided</p>
+                  )}
                 </div>
               </CardContent>
             </Card>

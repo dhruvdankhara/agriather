@@ -33,6 +33,8 @@ export default function Payments() {
   const fetchPayments = async () => {
     try {
       const response = await paymentAPI.getSupplierPayments();
+      console.log('🚀 ~ Payments.jsx:36 ~ fetchPayments ~ response:', response);
+
       const paymentData = Array.isArray(response.data.data)
         ? response.data.data
         : [];
@@ -40,24 +42,24 @@ export default function Payments() {
 
       // Calculate stats
       const totalEarnings = paymentData
-        .filter((p) => p.status === 'Completed')
-        .reduce((sum, p) => sum + (p.amount || 0), 0);
+        .filter((p) => p.status?.toLowerCase() === 'completed')
+        .reduce((sum, p) => sum + (p.supplierEarnings || 0), 0);
 
       const pendingPayments = paymentData
-        .filter((p) => p.status === 'Pending')
-        .reduce((sum, p) => sum + (p.amount || 0), 0);
+        .filter((p) => p.status?.toLowerCase() === 'pending')
+        .reduce((sum, p) => sum + (p.supplierEarnings || 0), 0);
 
       const thisMonthEarnings = paymentData
         .filter((p) => {
           const paymentDate = new Date(p.createdAt);
           const now = new Date();
           return (
-            p.status === 'Completed' &&
+            p.status?.toLowerCase() === 'completed' &&
             paymentDate.getMonth() === now.getMonth() &&
             paymentDate.getFullYear() === now.getFullYear()
           );
         })
-        .reduce((sum, p) => sum + (p.amount || 0), 0);
+        .reduce((sum, p) => sum + (p.supplierEarnings || 0), 0);
 
       setStats({
         totalEarnings,
@@ -74,22 +76,25 @@ export default function Payments() {
   };
 
   const getStatusColor = (status) => {
+    const statusLower = status?.toLowerCase();
     const colors = {
-      Completed: 'bg-green-100 text-green-800',
-      Pending: 'bg-yellow-100 text-yellow-800',
-      Failed: 'bg-red-100 text-red-800',
-      Processing: 'bg-blue-100 text-blue-800',
+      completed: 'bg-green-100 text-green-800',
+      pending: 'bg-yellow-100 text-yellow-800',
+      failed: 'bg-red-100 text-red-800',
+      processing: 'bg-blue-100 text-blue-800',
+      refunded: 'bg-gray-100 text-gray-800',
     };
-    return colors[status] || 'bg-gray-100 text-gray-800';
+    return colors[statusLower] || 'bg-gray-100 text-gray-800';
   };
 
   const getStatusIcon = (status) => {
-    switch (status) {
-      case 'Completed':
+    const statusLower = status?.toLowerCase();
+    switch (statusLower) {
+      case 'completed':
         return <CheckCircle className="h-4 w-4" />;
-      case 'Pending':
+      case 'pending':
         return <Clock className="h-4 w-4" />;
-      case 'Failed':
+      case 'failed':
         return <XCircle className="h-4 w-4" />;
       default:
         return <Clock className="h-4 w-4" />;
@@ -207,7 +212,7 @@ export default function Payments() {
                       Order
                     </th>
                     <th className="pb-3 text-left text-sm font-semibold text-gray-900">
-                      Amount
+                      Your Earnings
                     </th>
                     <th className="pb-3 text-left text-sm font-semibold text-gray-900">
                       Status
@@ -228,18 +233,29 @@ export default function Payments() {
                       </td>
                       <td className="py-4 text-sm text-gray-600">
                         {payment.order
-                          ? `#${payment.order.slice(-8).toUpperCase()}`
+                          ? `#${payment.order?.slice(-8).toUpperCase()}`
                           : 'N/A'}
                       </td>
-                      <td className="py-4 text-sm font-semibold">
-                        {formatCurrency(payment.amount)}
+                      <td className="py-4 text-sm">
+                        <p className="font-semibold text-green-600">
+                          {formatCurrency(
+                            payment.supplierEarnings || payment.amount
+                          )}
+                        </p>
+                        {payment.supplierItems && (
+                          <p className="text-xs text-gray-500">
+                            {payment.supplierItems} item
+                            {payment.supplierItems !== 1 ? 's' : ''}
+                          </p>
+                        )}
                       </td>
                       <td className="py-4">
                         <Badge
                           className={`flex w-fit items-center gap-1 ${getStatusColor(payment.status)}`}
                         >
                           {getStatusIcon(payment.status)}
-                          {payment.status}
+                          {payment.status?.charAt(0).toUpperCase() +
+                            payment.status?.slice(1).toLowerCase()}
                         </Badge>
                       </td>
                       <td className="py-4">

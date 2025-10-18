@@ -18,9 +18,11 @@ export default function Reviews() {
   const fetchReviews = async () => {
     try {
       const response = await reviewAPI.getSupplierReviews();
-      const reviewData = Array.isArray(response.data.data)
-        ? response.data.data
-        : [];
+      const reviewData = Array.isArray(response.data.data.reviews)
+        ? response.data.data.reviews
+        : Array.isArray(response.data.data)
+          ? response.data.data
+          : [];
       setReviews(reviewData);
 
       // Calculate stats
@@ -201,7 +203,12 @@ export default function Reviews() {
                             ))}
                           </div>
                           <span className="text-sm text-gray-600">
-                            by {review.customer?.fullName || 'Anonymous'}
+                            by{' '}
+                            {review.customer
+                              ? `${review.customer.firstname || ''} ${review.customer.lastname || ''}`.trim() ||
+                                review.customer.email ||
+                                'Anonymous'
+                              : 'Anonymous'}
                           </span>
                         </div>
                       </div>
@@ -210,7 +217,7 @@ export default function Reviews() {
                       </p>
                     </div>
 
-                    <p className="text-gray-700">{review.review}</p>
+                    <p className="text-gray-700">{review.comment}</p>
                   </div>
                 </div>
               </CardContent>

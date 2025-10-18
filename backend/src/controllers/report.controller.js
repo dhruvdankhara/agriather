@@ -8,23 +8,78 @@ import { ORDER_STATUS, PAYMENT_STATUS } from "../constants.js";
 
 // Generate supplier sales report
 export const getSupplierSalesReport = asyncHandler(async (req, res) => {
-  const { startDate, endDate, period = "daily" } = req.query;
+  const { startDate, endDate, period = "month" } = req.query;
 
-  const matchQuery = {
-    "items.supplier": req.user._id,
-    status: ORDER_STATUS.DELIVERED,
-  };
+  // Calculate date ranges for current and previous periods
+  let currentStartDate, currentEndDate, previousStartDate, previousEndDate;
+
+  const now = new Date();
 
   if (startDate && endDate) {
-    matchQuery.createdAt = {
-      $gte: new Date(startDate),
-      $lte: new Date(endDate),
-    };
+    currentStartDate = new Date(startDate);
+    currentEndDate = new Date(endDate);
+    const periodLength = currentEndDate - currentStartDate;
+    previousStartDate = new Date(currentStartDate.getTime() - periodLength);
+    previousEndDate = new Date(currentStartDate);
+  } else {
+    // Auto-calculate based on period
+    switch (period) {
+      case "week":
+        currentEndDate = now;
+        currentStartDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+        previousEndDate = new Date(currentStartDate);
+        previousStartDate = new Date(
+          previousEndDate.getTime() - 7 * 24 * 60 * 60 * 1000
+        );
+        break;
+      case "month":
+        currentEndDate = now;
+        currentStartDate = new Date(now.getFullYear(), now.getMonth(), 1);
+        previousEndDate = new Date(currentStartDate);
+        previousStartDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+        break;
+      case "quarter":
+        const quarter = Math.floor(now.getMonth() / 3);
+        currentStartDate = new Date(now.getFullYear(), quarter * 3, 1);
+        currentEndDate = now;
+        previousStartDate = new Date(now.getFullYear(), (quarter - 1) * 3, 1);
+        previousEndDate = new Date(currentStartDate);
+        break;
+      case "year":
+        currentStartDate = new Date(now.getFullYear(), 0, 1);
+        currentEndDate = now;
+        previousStartDate = new Date(now.getFullYear() - 1, 0, 1);
+        previousEndDate = new Date(now.getFullYear(), 0, 1);
+        break;
+      default:
+        currentEndDate = now;
+        currentStartDate = new Date(now.getFullYear(), now.getMonth(), 1);
+        previousEndDate = new Date(currentStartDate);
+        previousStartDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+    }
   }
 
-  // Overall statistics
-  const overallStats = await Order.aggregate([
-    { $match: matchQuery },
+  const currentMatchQuery = {
+    "items.supplier": req.user._id,
+    status: ORDER_STATUS.DELIVERED,
+    createdAt: {
+      $gte: currentStartDate,
+      $lte: currentEndDate,
+    },
+  };
+
+  const previousMatchQuery = {
+    "items.supplier": req.user._id,
+    status: ORDER_STATUS.DELIVERED,
+    createdAt: {
+      $gte: previousStartDate,
+      $lt: previousEndDate,
+    },
+  };
+
+  // Current period statistics
+  const currentStats = await Order.aggregate([
+    { $match: currentMatchQuery },
     { $unwind: "$items" },
     { $match: { "items.supplier": req.user._id } },
     {
@@ -34,13 +89,54 @@ export const getSupplierSalesReport = asyncHandler(async (req, res) => {
         totalRevenue: { $sum: "$items.subtotal" },
         totalQuantitySold: { $sum: "$items.quantity" },
         averageOrderValue: { $avg: "$items.subtotal" },
+        uniqueCustomers: { $addToSet: "$customer" },
+      },
+    },
+    {
+      $project: {
+        totalOrders: 1,
+        totalRevenue: 1,
+        totalQuantitySold: 1,
+        averageOrderValue: 1,
+        uniqueCustomers: { $size: "$uniqueCustomers" },
       },
     },
   ]);
 
-  // Product-wise sales
+  // Previous period statistics (for growth calculation)
+  const previousStats = await Order.aggregate([
+    { $match: previousMatchQuery },
+    { $unwind: "$items" },
+    { $match: { "items.supplier": req.user._id } },
+    {
+      $group: {
+        _id: null,
+        totalOrders: { $sum: 1 },
+        totalRevenue: { $sum: "$items.subtotal" },
+      },
+    },
+  ]);
+
+  // Calculate growth percentages
+  const currentRevenue = currentStats[0]?.totalRevenue || 0;
+  const previousRevenue = previousStats[0]?.totalRevenue || 0;
+  const currentOrders = currentStats[0]?.totalOrders || 0;
+  const previousOrders = previousStats[0]?.totalOrders || 0;
+
+  const salesGrowth =
+    previousRevenue > 0
+      ? (((currentRevenue - previousRevenue) / previousRevenue) * 100).toFixed(
+          1
+        )
+      : 0;
+  const ordersGrowth =
+    previousOrders > 0
+      ? (((currentOrders - previousOrders) / previousOrders) * 100).toFixed(1)
+      : 0;
+
+  // Product-wise sales with category
   const productWiseSales = await Order.aggregate([
-    { $match: matchQuery },
+    { $match: currentMatchQuery },
     { $unwind: "$items" },
     { $match: { "items.supplier": req.user._id } },
     {
@@ -53,9 +149,18 @@ export const getSupplierSalesReport = asyncHandler(async (req, res) => {
     },
     { $unwind: "$productInfo" },
     {
+      $lookup: {
+        from: "categories",
+        localField: "productInfo.category",
+        foreignField: "_id",
+        as: "categoryInfo",
+      },
+    },
+    {
       $group: {
         _id: "$items.product",
         productName: { $first: "$productInfo.name" },
+        category: { $first: { $arrayElemAt: ["$categoryInfo.name", 0] } },
         totalSales: { $sum: "$items.subtotal" },
         totalQuantity: { $sum: "$items.quantity" },
         totalOrders: { $sum: 1 },
@@ -65,18 +170,71 @@ export const getSupplierSalesReport = asyncHandler(async (req, res) => {
     { $limit: 10 },
   ]);
 
+  // Category-wise sales
+  const categoryWiseSales = await Order.aggregate([
+    { $match: currentMatchQuery },
+    { $unwind: "$items" },
+    { $match: { "items.supplier": req.user._id } },
+    {
+      $lookup: {
+        from: "products",
+        localField: "items.product",
+        foreignField: "_id",
+        as: "productInfo",
+      },
+    },
+    { $unwind: "$productInfo" },
+    {
+      $lookup: {
+        from: "categories",
+        localField: "productInfo.category",
+        foreignField: "_id",
+        as: "categoryInfo",
+      },
+    },
+    { $unwind: "$categoryInfo" },
+    {
+      $group: {
+        _id: "$categoryInfo._id",
+        category: { $first: "$categoryInfo.name" },
+        totalSales: { $sum: "$items.subtotal" },
+        totalQuantity: { $sum: "$items.quantity" },
+      },
+    },
+    { $sort: { totalSales: -1 } },
+  ]);
+
+  // Calculate percentages for categories
+  const totalCategorySales = categoryWiseSales.reduce(
+    (sum, cat) => sum + cat.totalSales,
+    0
+  );
+  const categoryWiseSalesWithPercentage = categoryWiseSales.map((cat) => ({
+    category: cat.category,
+    sales: cat.totalSales,
+    quantity: cat.totalQuantity,
+    percentage:
+      totalCategorySales > 0
+        ? ((cat.totalSales / totalCategorySales) * 100).toFixed(1)
+        : 0,
+  }));
+
   // Time-based sales trend
   let groupByFormat;
   switch (period) {
+    case "week":
     case "daily":
       groupByFormat = {
         $dateToString: { format: "%Y-%m-%d", date: "$createdAt" },
       };
       break;
-    case "weekly":
-      groupByFormat = { $week: "$createdAt" };
+    case "month":
+      groupByFormat = {
+        $dateToString: { format: "%Y-%m-%d", date: "$createdAt" },
+      };
       break;
-    case "monthly":
+    case "quarter":
+    case "year":
       groupByFormat = {
         $dateToString: { format: "%Y-%m", date: "$createdAt" },
       };
@@ -88,7 +246,7 @@ export const getSupplierSalesReport = asyncHandler(async (req, res) => {
   }
 
   const salesTrend = await Order.aggregate([
-    { $match: matchQuery },
+    { $match: currentMatchQuery },
     { $unwind: "$items" },
     { $match: { "items.supplier": req.user._id } },
     {
@@ -102,11 +260,41 @@ export const getSupplierSalesReport = asyncHandler(async (req, res) => {
     { $sort: { _id: 1 } },
   ]);
 
+  // Get total active products count
+  const totalProducts = await Product.countDocuments({
+    supplier: req.user._id,
+    isActive: true,
+  });
+
+  // Low stock products
+  const lowStockProducts = await Product.find({
+    supplier: req.user._id,
+    isActive: true,
+    stock: { $lt: 10 },
+  })
+    .select("name stock")
+    .limit(5)
+    .lean();
+
   return res.status(200).json(
     new ApiResponse(200, "Supplier sales report generated successfully", {
-      summary: overallStats[0] || {},
+      summary: {
+        ...(currentStats[0] || {}),
+        totalProducts,
+        salesGrowth: parseFloat(salesGrowth),
+        ordersGrowth: parseFloat(ordersGrowth),
+      },
       productWiseSales,
+      categoryWiseSales: categoryWiseSalesWithPercentage,
       salesTrend,
+      lowStockProducts,
+      periodInfo: {
+        period,
+        currentStart: currentStartDate,
+        currentEnd: currentEndDate,
+        previousStart: previousStartDate,
+        previousEnd: previousEndDate,
+      },
     })
   );
 });
