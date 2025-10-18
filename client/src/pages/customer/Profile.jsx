@@ -47,7 +47,8 @@ export default function Profile() {
 
   const [isEditing, setIsEditing] = useState(false);
   const [formData, setFormData] = useState({
-    fullName: user?.fullName || '',
+    firstname: user?.firstname || '',
+    lastname: user?.lastname || '',
     email: user?.email || '',
     phone: user?.phone || '',
   });
@@ -85,7 +86,8 @@ export default function Profile() {
 
   const handleCancel = () => {
     setFormData({
-      fullName: user?.fullName || '',
+      firstname: user?.firstname || '',
+      lastname: user?.lastname || '',
       email: user?.email || '',
       phone: user?.phone || '',
     });
@@ -120,16 +122,29 @@ export default function Profile() {
           <CardContent>
             {isEditing ? (
               <form onSubmit={handleSubmit} className="space-y-4">
-                <div>
-                  <Label htmlFor="fullName">Full Name</Label>
-                  <Input
-                    id="fullName"
-                    value={formData.fullName}
-                    onChange={(e) =>
-                      setFormData({ ...formData, fullName: e.target.value })
-                    }
-                    required
-                  />
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div>
+                    <Label htmlFor="firstname">First Name</Label>
+                    <Input
+                      id="firstname"
+                      value={formData.firstname}
+                      onChange={(e) =>
+                        setFormData({ ...formData, firstname: e.target.value })
+                      }
+                      required
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="lastname">Last Name</Label>
+                    <Input
+                      id="lastname"
+                      value={formData.lastname}
+                      onChange={(e) =>
+                        setFormData({ ...formData, lastname: e.target.value })
+                      }
+                      required
+                    />
+                  </div>
                 </div>
                 <div>
                   <Label htmlFor="email">Email</Label>
@@ -171,8 +186,10 @@ export default function Profile() {
                 <div className="flex items-center gap-3">
                   <User className="h-5 w-5 text-gray-400" />
                   <div>
-                    <p className="text-sm text-gray-600">Full Name</p>
-                    <p className="font-medium">{user?.fullName}</p>
+                    <p className="text-sm text-gray-600">Name</p>
+                    <p className="font-medium">
+                      {user?.firstname} {user?.lastname}
+                    </p>
                   </div>
                 </div>
                 <div className="flex items-center gap-3">
@@ -247,7 +264,7 @@ export default function Profile() {
                 {addresses.map((address) => (
                   <div
                     key={address._id}
-                    className="rounded-lg border p-4 hover:border-gray-300"
+                    className="rounded-lg border border-gray-300 p-4 hover:border-black"
                   >
                     <div className="mb-3 flex items-start justify-between">
                       <div>

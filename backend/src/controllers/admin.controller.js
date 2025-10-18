@@ -139,6 +139,7 @@ export const getAllCustomers = asyncHandler(async (req, res) => {
 
 // Monitor platform activity
 export const getPlatformStats = asyncHandler(async (req, res) => {
+  // User Statistics
   const totalCustomers = await User.countDocuments({
     role: USER_ROLES.CUSTOMER,
   });
@@ -150,43 +151,272 @@ export const getPlatformStats = asyncHandler(async (req, res) => {
     role: USER_ROLES.SUPPLIER,
     isApproved: false,
   });
+  const activeSuppliers = await User.countDocuments({
+    role: USER_ROLES.SUPPLIER,
+    isApproved: true,
+    isActive: true,
+  });
 
+  // Calculate date ranges for time-based stats
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const tomorrow = new Date(today);
+  tomorrow.setDate(tomorrow.getDate() + 1);
+
+  const weekAgo = new Date(today);
+  weekAgo.setDate(weekAgo.getDate() - 7);
+
+  const monthAgo = new Date(today);
+  monthAgo.setMonth(monthAgo.getMonth() - 1);
+
+  // Time-based user stats
+  const todayNewUsers = await User.countDocuments({
+    createdAt: { $gte: today, $lt: tomorrow },
+  });
+  const weekNewUsers = await User.countDocuments({
+    createdAt: { $gte: weekAgo },
+  });
+  const monthNewUsers = await User.countDocuments({
+    createdAt: { $gte: monthAgo },
+  });
+
+  // Order Statistics
   const totalOrders = await Order.countDocuments();
   const pendingOrders = await Order.countDocuments({
     status: ORDER_STATUS.PENDING,
   });
+  const confirmedOrders = await Order.countDocuments({
+    status: ORDER_STATUS.CONFIRMED,
+  });
+  const shippedOrders = await Order.countDocuments({
+    status: ORDER_STATUS.SHIPPED,
+  });
   const completedOrders = await Order.countDocuments({
     status: ORDER_STATUS.DELIVERED,
   });
+  const cancelledOrders = await Order.countDocuments({
+    status: ORDER_STATUS.CANCELLED,
+  });
 
+  // Time-based order stats
+  const todayOrders = await Order.countDocuments({
+    createdAt: { $gte: today, $lt: tomorrow },
+  });
+  const weekOrders = await Order.countDocuments({
+    createdAt: { $gte: weekAgo },
+  });
+  const monthOrders = await Order.countDocuments({
+    createdAt: { $gte: monthAgo },
+  });
+
+  // Revenue Statistics
   const totalRevenue = await Payment.aggregate([
     { $match: { status: "completed" } },
     { $group: { _id: null, total: { $sum: "$amount" } } },
   ]);
 
+  const todayRevenue = await Payment.aggregate([
+    {
+      $match: {
+        status: "completed",
+        createdAt: { $gte: today, $lt: tomorrow },
+      },
+    },
+    { $group: { _id: null, total: { $sum: "$amount" } } },
+  ]);
+
+  const weekRevenue = await Payment.aggregate([
+    {
+      $match: {
+        status: "completed",
+        createdAt: { $gte: weekAgo },
+      },
+    },
+    { $group: { _id: null, total: { $sum: "$amount" } } },
+  ]);
+
+  const monthRevenue = await Payment.aggregate([
+    {
+      $match: {
+        status: "completed",
+        createdAt: { $gte: monthAgo },
+      },
+    },
+    { $group: { _id: null, total: { $sum: "$amount" } } },
+  ]);
+
+  // Product Statistics
   const totalProducts = await Product.countDocuments();
   const activeProducts = await Product.countDocuments({ isActive: true });
+  const inactiveProducts = await Product.countDocuments({ isActive: false });
 
+  // Low stock products (stock < 10)
+  const lowStockProducts = await Product.countDocuments({
+    stock: { $lt: 10, $gt: 0 },
+    isActive: true,
+  });
+
+  // Out of stock products
+  const outOfStockProducts = await Product.countDocuments({
+    stock: 0,
+    isActive: true,
+  });
+
+  // Products added this week
+  const weekNewProducts = await Product.countDocuments({
+    createdAt: { $gte: weekAgo },
+  });
+
+  // Review Statistics
   const totalReviews = await Review.countDocuments();
+  const weekNewReviews = await Review.countDocuments({
+    createdAt: { $gte: weekAgo },
+  });
+
+  // Average rating calculation
+  const avgRating = await Review.aggregate([
+    { $group: { _id: null, average: { $avg: "$rating" } } },
+  ]);
+
+  // Category Statistics
+  const totalCategories = await Category.countDocuments();
+
+  // Top categories by product count
+  const topCategories = await Product.aggregate([
+    { $match: { isActive: true } },
+    { $group: { _id: "$category", count: { $sum: 1 } } },
+    { $sort: { count: -1 } },
+    { $limit: 5 },
+    {
+      $lookup: {
+        from: "categories",
+        localField: "_id",
+        foreignField: "_id",
+        as: "categoryInfo",
+      },
+    },
+    { $unwind: "$categoryInfo" },
+    {
+      $project: {
+        _id: 1,
+        name: "$categoryInfo.name",
+        productCount: "$count",
+      },
+    },
+  ]);
+
+  // Payment Statistics
+  const totalPayments = await Payment.countDocuments();
+  const completedPayments = await Payment.countDocuments({
+    status: "completed",
+  });
+  const pendingPayments = await Payment.countDocuments({ status: "pending" });
+  const failedPayments = await Payment.countDocuments({ status: "failed" });
+
+  // Recent activity - last 5 orders
+  const recentOrders = await Order.find()
+    .populate("customer", "firstname lastname email")
+    .sort({ createdAt: -1 })
+    .limit(5)
+    .select("orderNumber status finalAmount createdAt");
+
+  // Recent reviews - last 5
+  const recentReviews = await Review.find()
+    .populate("customer", "firstname lastname")
+    .populate("product", "name")
+    .sort({ createdAt: -1 })
+    .limit(5)
+    .select("rating comment customer product createdAt");
+
+  // Growth metrics (comparing this month vs last month)
+  const lastMonthStart = new Date(monthAgo);
+  lastMonthStart.setMonth(lastMonthStart.getMonth() - 1);
+
+  const lastMonthOrders = await Order.countDocuments({
+    createdAt: { $gte: lastMonthStart, $lt: monthAgo },
+  });
+
+  const lastMonthRevenue = await Payment.aggregate([
+    {
+      $match: {
+        status: "completed",
+        createdAt: { $gte: lastMonthStart, $lt: monthAgo },
+      },
+    },
+    { $group: { _id: null, total: { $sum: "$amount" } } },
+  ]);
+
+  const orderGrowth =
+    lastMonthOrders > 0
+      ? (((monthOrders - lastMonthOrders) / lastMonthOrders) * 100).toFixed(2)
+      : 0;
+
+  const revenueGrowth =
+    lastMonthRevenue[0]?.total > 0
+      ? (
+          ((monthRevenue[0]?.total - lastMonthRevenue[0]?.total) /
+            lastMonthRevenue[0]?.total) *
+          100
+        ).toFixed(2)
+      : 0;
 
   return res.status(200).json(
     new ApiResponse(200, "Platform stats fetched successfully", {
       users: {
         totalCustomers,
         totalSuppliers,
+        activeSuppliers,
         pendingSuppliers,
+        todayNewUsers,
+        weekNewUsers,
+        monthNewUsers,
       },
       orders: {
         totalOrders,
         pendingOrders,
+        confirmedOrders,
+        shippedOrders,
         completedOrders,
+        cancelledOrders,
+        todayOrders,
+        weekOrders,
+        monthOrders,
+        orderGrowth: parseFloat(orderGrowth),
       },
-      revenue: totalRevenue[0]?.total || 0,
+      revenue: {
+        total: totalRevenue[0]?.total || 0,
+        today: todayRevenue[0]?.total || 0,
+        week: weekRevenue[0]?.total || 0,
+        month: monthRevenue[0]?.total || 0,
+        revenueGrowth: parseFloat(revenueGrowth),
+      },
       products: {
         totalProducts,
         activeProducts,
+        inactiveProducts,
+        lowStockProducts,
+        outOfStockProducts,
+        weekNewProducts,
       },
-      totalReviews,
+      categories: {
+        totalCategories,
+        topCategories,
+      },
+      reviews: {
+        totalReviews,
+        weekNewReviews,
+        averageRating: avgRating[0]?.average || 0,
+      },
+      payments: {
+        totalPayments,
+        completedPayments,
+        pendingPayments,
+        failedPayments,
+      },
+      recentActivity: {
+        orders: recentOrders,
+        reviews: recentReviews,
+      },
     })
   );
 });
