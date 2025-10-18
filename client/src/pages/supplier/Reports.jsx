@@ -24,6 +24,9 @@ import {
   ShoppingCart,
   DollarSign,
   Users,
+  AlertTriangle,
+  Calendar,
+  TrendingDown as TrendingDownIcon,
 } from 'lucide-react';
 import { reportAPI } from '../../services';
 import toast from 'react-hot-toast';
@@ -100,11 +103,54 @@ export default function Reports() {
       setLoading(true);
       try {
         const response = await reportAPI.getSupplierReports({ period });
-        setReportData(response.data.data || generateMockData());
-      } catch {
-        // Generate mock data if API fails
+        const apiData = response.data.data;
+
+        // Check if API returned actual data
+        if (
+          apiData &&
+          apiData.summary &&
+          Object.keys(apiData.summary).length > 0
+        ) {
+          // Transform API data to match component structure
+          const transformedData = {
+            overview: {
+              totalSales: apiData.summary.totalRevenue || 0,
+              totalOrders: apiData.summary.totalOrders || 0,
+              totalProducts: apiData.summary.totalProducts || 0,
+              totalCustomers: apiData.summary.uniqueCustomers || 0,
+              salesGrowth: apiData.summary.salesGrowth || 0,
+              ordersGrowth: apiData.summary.ordersGrowth || 0,
+              averageOrderValue: apiData.summary.averageOrderValue || 0,
+              totalQuantitySold: apiData.summary.totalQuantitySold || 0,
+            },
+            topProducts:
+              apiData.productWiseSales?.slice(0, 5).map((product) => ({
+                _id: product._id,
+                name: product.productName,
+                sales: product.totalQuantity,
+                revenue: product.totalSales,
+                category: product.category || 'N/A',
+              })) || [],
+            salesByCategory: apiData.categoryWiseSales || [],
+            recentTrends: {
+              labels: apiData.salesTrend?.map((t) => t._id) || [],
+              sales: apiData.salesTrend?.map((t) => t.totalSales) || [],
+              orders: apiData.salesTrend?.map((t) => t.totalOrders) || [],
+            },
+            lowStockProducts: apiData.lowStockProducts || [],
+            periodInfo: apiData.periodInfo || null,
+          };
+          setReportData(transformedData);
+        } else {
+          // No sales data yet - show mock data
+          setReportData(generateMockData());
+          toast.info('No sales data available yet. Showing sample data.');
+        }
+      } catch (error) {
+        console.error('Failed to fetch reports:', error);
+        // API error - show mock data
         setReportData(generateMockData());
-        toast.info('Displaying sample report data');
+        toast.error('Failed to load reports. Showing sample data.');
       } finally {
         setLoading(false);
       }
@@ -160,12 +206,12 @@ export default function Reports() {
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-600">Total Sales</p>
+                <p className="text-sm text-gray-600">Total Revenue</p>
                 <p className="text-2xl font-bold">
                   {formatCurrency(reportData?.overview?.totalSales || 0)}
                 </p>
                 <div className="mt-1 flex items-center gap-1 text-xs">
-                  {reportData?.overview?.salesGrowth > 0 ? (
+                  {reportData?.overview?.salesGrowth >= 0 ? (
                     <>
                       <TrendingUp className="h-3 w-3 text-green-600" />
                       <span className="text-green-600">
@@ -197,7 +243,7 @@ export default function Reports() {
                   {reportData?.overview?.totalOrders || 0}
                 </p>
                 <div className="mt-1 flex items-center gap-1 text-xs">
-                  {reportData?.overview?.ordersGrowth > 0 ? (
+                  {reportData?.overview?.ordersGrowth >= 0 ? (
                     <>
                       <TrendingUp className="h-3 w-3 text-green-600" />
                       <span className="text-green-600">
@@ -224,9 +270,12 @@ export default function Reports() {
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-600">Total Products</p>
+                <p className="text-sm text-gray-600">Active Products</p>
                 <p className="text-2xl font-bold">
                   {reportData?.overview?.totalProducts || 0}
+                </p>
+                <p className="mt-1 text-xs text-gray-500">
+                  {reportData?.overview?.totalQuantitySold || 0} units sold
                 </p>
               </div>
               <Package className="h-8 w-8 text-purple-600" />
@@ -238,9 +287,13 @@ export default function Reports() {
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-600">Total Customers</p>
+                <p className="text-sm text-gray-600">Unique Customers</p>
                 <p className="text-2xl font-bold">
                   {reportData?.overview?.totalCustomers || 0}
+                </p>
+                <p className="mt-1 text-xs text-gray-500">
+                  Avg:{' '}
+                  {formatCurrency(reportData?.overview?.averageOrderValue || 0)}
                 </p>
               </div>
               <Users className="h-8 w-8 text-orange-600" />
@@ -249,6 +302,49 @@ export default function Reports() {
         </Card>
       </div>
 
+      {/* Low Stock Alert */}
+      {reportData?.lowStockProducts &&
+        reportData.lowStockProducts.length > 0 && (
+          <Card className="border-orange-200 bg-orange-50">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-orange-800">
+                <AlertTriangle className="h-5 w-5" />
+                Low Stock Alert
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-2">
+                {reportData.lowStockProducts.map((product) => (
+                  <div
+                    key={product._id}
+                    className="flex items-center justify-between rounded-lg bg-white p-3"
+                  >
+                    <div>
+                      <p className="font-medium text-gray-900">
+                        {product.name}
+                      </p>
+                      <p className="text-sm text-gray-600">
+                        Only {product.stock} units remaining
+                      </p>
+                    </div>
+                    <span
+                      className={`rounded-full px-3 py-1 text-xs font-semibold ${
+                        product.stock === 0
+                          ? 'bg-red-100 text-red-800'
+                          : product.stock < 5
+                            ? 'bg-orange-100 text-orange-800'
+                            : 'bg-yellow-100 text-yellow-800'
+                      }`}
+                    >
+                      {product.stock === 0 ? 'Out of Stock' : 'Low Stock'}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
       <div className="grid gap-6 lg:grid-cols-2">
         {/* Top Products */}
         <Card>
@@ -256,30 +352,41 @@ export default function Reports() {
             <CardTitle>Top Selling Products</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="space-y-4">
-              {reportData?.topProducts?.map((product, index) => (
-                <div
-                  key={product._id}
-                  className="flex items-center gap-4 border-b pb-3 last:border-0"
-                >
-                  <div className="flex h-10 w-10 items-center justify-center rounded-full bg-blue-100 font-bold text-blue-600">
-                    #{index + 1}
+            {reportData?.topProducts && reportData.topProducts.length > 0 ? (
+              <div className="space-y-4">
+                {reportData.topProducts.map((product, index) => (
+                  <div
+                    key={product._id}
+                    className="flex items-center gap-4 border-b pb-3 last:border-0"
+                  >
+                    <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-blue-500 to-blue-600 font-bold text-white shadow-sm">
+                      #{index + 1}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate font-semibold text-gray-900">
+                        {product.name}
+                      </p>
+                      <p className="text-sm text-gray-600">
+                        {product.category}
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      <p className="font-bold text-green-600">
+                        {formatCurrency(product.revenue)}
+                      </p>
+                      <p className="text-sm text-gray-600">
+                        {product.sales} units
+                      </p>
+                    </div>
                   </div>
-                  <div className="flex-1">
-                    <p className="font-semibold">{product.name}</p>
-                    <p className="text-sm text-gray-600">{product.category}</p>
-                  </div>
-                  <div className="text-right">
-                    <p className="font-bold text-green-600">
-                      {formatCurrency(product.revenue)}
-                    </p>
-                    <p className="text-sm text-gray-600">
-                      {product.sales} sales
-                    </p>
-                  </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            ) : (
+              <div className="py-8 text-center text-gray-500">
+                <ShoppingCart className="mx-auto mb-2 h-12 w-12 text-gray-400" />
+                <p>No sales data available</p>
+              </div>
+            )}
           </CardContent>
         </Card>
 
@@ -289,29 +396,42 @@ export default function Reports() {
             <CardTitle>Sales by Category</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="space-y-4">
-              {reportData?.salesByCategory?.map((item) => (
-                <div key={item.category}>
-                  <div className="mb-2 flex items-center justify-between">
-                    <span className="font-medium">{item.category}</span>
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm font-semibold text-blue-600">
-                        {formatCurrency(item.sales)}
-                      </span>
-                      <span className="text-sm text-gray-600">
-                        ({item.percentage}%)
-                      </span>
+            {reportData?.salesByCategory &&
+            reportData.salesByCategory.length > 0 ? (
+              <div className="space-y-4">
+                {reportData.salesByCategory.map((item) => (
+                  <div key={item.category}>
+                    <div className="mb-2 flex items-center justify-between">
+                      <div>
+                        <span className="font-medium">{item.category}</span>
+                        <span className="ml-2 text-xs text-gray-500">
+                          ({item.quantity} units)
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-semibold text-blue-600">
+                          {formatCurrency(item.sales)}
+                        </span>
+                        <span className="text-sm text-gray-600">
+                          ({item.percentage}%)
+                        </span>
+                      </div>
+                    </div>
+                    <div className="h-2 w-full overflow-hidden rounded-full bg-gray-200">
+                      <div
+                        className="h-full bg-gradient-to-r from-blue-500 to-blue-600"
+                        style={{ width: `${item.percentage}%` }}
+                      />
                     </div>
                   </div>
-                  <div className="h-2 w-full overflow-hidden rounded-full bg-gray-200">
-                    <div
-                      className="h-full bg-blue-600"
-                      style={{ width: `${item.percentage}%` }}
-                    />
-                  </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            ) : (
+              <div className="py-8 text-center text-gray-500">
+                <Package className="mx-auto mb-2 h-12 w-12 text-gray-400" />
+                <p>No category data available</p>
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>
@@ -319,47 +439,93 @@ export default function Reports() {
       {/* Sales Trend */}
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <BarChart3 className="h-5 w-5" />
-            Sales Trend
+          <CardTitle className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <BarChart3 className="h-5 w-5" />
+              Sales Trend
+            </div>
+            {reportData?.periodInfo && (
+              <span className="text-sm font-normal text-gray-500">
+                <Calendar className="mr-1 inline h-4 w-4" />
+                {new Date(
+                  reportData.periodInfo.currentStart
+                ).toLocaleDateString()}{' '}
+                -{' '}
+                {new Date(
+                  reportData.periodInfo.currentEnd
+                ).toLocaleDateString()}
+              </span>
+            )}
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="space-y-4">
-            {reportData?.recentTrends?.labels?.map((label, index) => (
-              <div
-                key={label}
-                className="flex items-center gap-4 border-b pb-3 last:border-0"
-              >
-                <div className="w-20 font-medium text-gray-700">{label}</div>
-                <div className="flex-1">
-                  <div className="mb-1 flex items-center justify-between text-sm">
-                    <span className="text-gray-600">Sales</span>
-                    <span className="font-semibold text-green-600">
-                      {formatCurrency(reportData.recentTrends.sales[index])}
-                    </span>
+          {reportData?.recentTrends?.labels &&
+          reportData.recentTrends.labels.length > 0 ? (
+            <div className="space-y-4">
+              {reportData.recentTrends.labels.map((label, index) => {
+                const maxSales = Math.max(...reportData.recentTrends.sales);
+                const percentage =
+                  maxSales > 0
+                    ? (reportData.recentTrends.sales[index] / maxSales) * 100
+                    : 0;
+
+                // Format date label
+                let formattedLabel = label;
+                try {
+                  const date = new Date(label);
+                  if (!isNaN(date.getTime())) {
+                    formattedLabel = date.toLocaleDateString('en-US', {
+                      month: 'short',
+                      day: 'numeric',
+                    });
+                  }
+                } catch {
+                  // Keep original label if parsing fails
+                }
+
+                return (
+                  <div
+                    key={label}
+                    className="flex items-center gap-4 border-b pb-3 last:border-0"
+                  >
+                    <div className="w-20 flex-shrink-0 font-medium text-gray-700">
+                      {formattedLabel}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="mb-1 flex items-center justify-between text-sm">
+                        <span className="text-gray-600">Revenue</span>
+                        <span className="font-semibold text-green-600">
+                          {formatCurrency(reportData.recentTrends.sales[index])}
+                        </span>
+                      </div>
+                      <div className="h-2 w-full overflow-hidden rounded-full bg-gray-200">
+                        <div
+                          className="h-full bg-gradient-to-r from-green-500 to-green-600 transition-all"
+                          style={{ width: `${percentage}%` }}
+                        />
+                      </div>
+                    </div>
+                    <div className="w-24 flex-shrink-0 text-right">
+                      <span className="text-sm font-medium text-gray-700">
+                        {reportData.recentTrends.orders[index]}
+                      </span>
+                      <span className="block text-xs text-gray-500">
+                        orders
+                      </span>
+                    </div>
                   </div>
-                  <div className="h-2 w-full overflow-hidden rounded-full bg-gray-200">
-                    <div
-                      className="h-full bg-green-600"
-                      style={{
-                        width: `${
-                          (reportData.recentTrends.sales[index] /
-                            Math.max(...reportData.recentTrends.sales)) *
-                          100
-                        }%`,
-                      }}
-                    />
-                  </div>
-                </div>
-                <div className="w-24 text-right">
-                  <span className="text-sm text-gray-600">
-                    {reportData.recentTrends.orders[index]} orders
-                  </span>
-                </div>
-              </div>
-            ))}
-          </div>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="py-8 text-center text-gray-500">
+              <BarChart3 className="mx-auto mb-2 h-12 w-12 text-gray-400" />
+              <p>No trend data available</p>
+              <p className="mt-1 text-sm">
+                Sales data will appear here once you have orders
+              </p>
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>
