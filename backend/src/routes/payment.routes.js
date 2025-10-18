@@ -1,6 +1,8 @@
 import express from "express";
 import {
-  processPayment,
+  createPaymentOrder,
+  verifyPayment,
+  handlePaymentFailure,
   getPaymentById,
   getCustomerPayments,
   getSupplierPayments,
@@ -15,7 +17,9 @@ import {
 const router = express.Router();
 
 // Customer routes
-router.post("/process", verifyJWT, requireCustomer, processPayment);
+router.post("/create-order", verifyJWT, requireCustomer, createPaymentOrder);
+router.post("/verify", verifyJWT, requireCustomer, verifyPayment);
+router.post("/failure", verifyJWT, requireCustomer, handlePaymentFailure);
 router.get(
   "/customer/history",
   verifyJWT,

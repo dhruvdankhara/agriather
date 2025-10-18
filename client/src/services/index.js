@@ -68,7 +68,9 @@ export const orderAPI = {
 
 // Payment APIs
 export const paymentAPI = {
-  process: (data) => api.post('/payments/process', data),
+  createOrder: (data) => api.post('/payments/create-order', data),
+  verifyPayment: (data) => api.post('/payments/verify', data),
+  handleFailure: (data) => api.post('/payments/failure', data),
   getById: (id) => api.get(`/payments/${id}`),
   getCustomerHistory: (params) =>
     api.get('/payments/customer/history', { params }),

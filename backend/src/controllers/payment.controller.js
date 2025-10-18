@@ -3,11 +3,99 @@ import ApiError from "../utils/ApiError.js";
 import ApiResponse from "../utils/ApiResponse.js";
 import Payment from "../models/payment.model.js";
 import Order from "../models/order.model.js";
-import { PAYMENT_STATUS, ORDER_STATUS } from "../constants.js";
+import { PAYMENT_STATUS, ORDER_STATUS, PAYMENT_METHOD } from "../constants.js";
+import {
+  createRazorpayOrder,
+  verifyPaymentSignature,
+  fetchPaymentDetails,
+} from "../utils/razorpay.js";
 
-// Process payment (Mock implementation - integrate with actual payment gateway)
-export const processPayment = asyncHandler(async (req, res) => {
-  const { paymentId, paymentDetails } = req.body;
+// Create Razorpay order
+export const createPaymentOrder = asyncHandler(async (req, res) => {
+  const { orderId } = req.body;
+
+  const order = await Order.findById(orderId);
+
+  if (!order) {
+    throw new ApiError(404, "Order not found");
+  }
+
+  if (order.customer.toString() !== req.user._id.toString()) {
+    throw new ApiError(403, "Access denied");
+  }
+
+  // Check if payment already exists for this order
+  const existingPayment = await Payment.findOne({ order: orderId });
+
+  if (existingPayment && existingPayment.status === PAYMENT_STATUS.COMPLETED) {
+    throw new ApiError(400, "Payment already completed for this order");
+  }
+
+  // Create or get payment record
+  let payment;
+  if (existingPayment) {
+    payment = existingPayment;
+  } else {
+    payment = await Payment.create({
+      order: orderId,
+      customer: req.user._id,
+      amount: order.totalAmount,
+      paymentMethod: order.paymentMethod,
+      status: PAYMENT_STATUS.PENDING,
+    });
+  }
+
+  // For COD, mark as pending and return
+  if (order.paymentMethod === PAYMENT_METHOD.COD) {
+    return res.status(200).json(
+      new ApiResponse(200, "Cash on Delivery order created", {
+        payment,
+        requiresPayment: false,
+      })
+    );
+  }
+
+  // Create Razorpay order
+  try {
+    const razorpayOrder = await createRazorpayOrder(
+      order.totalAmount,
+      "INR",
+      order.orderNumber
+    );
+
+    // Update payment with Razorpay order details
+    payment.paymentGatewayResponse = {
+      razorpay_order_id: razorpayOrder.id,
+      razorpay_order_created_at: razorpayOrder.created_at,
+    };
+    await payment.save();
+
+    return res.status(200).json(
+      new ApiResponse(200, "Payment order created successfully", {
+        payment,
+        razorpayOrder: {
+          id: razorpayOrder.id,
+          amount: razorpayOrder.amount,
+          currency: razorpayOrder.currency,
+        },
+        razorpayKeyId: process.env.RAZORPAY_KEY_ID,
+        requiresPayment: true,
+      })
+    );
+  } catch (error) {
+    console.error("Razorpay order creation error:", error);
+    throw new ApiError(500, "Failed to create payment order");
+  }
+});
+
+// Verify Razorpay payment
+export const verifyPayment = asyncHandler(async (req, res) => {
+  const {
+    razorpay_order_id,
+    razorpay_payment_id,
+    razorpay_signature,
+    paymentId,
+  } = req.body;
 
   const payment = await Payment.findById(paymentId).populate("order");
 
@@ -19,25 +107,34 @@ export const processPayment = asyncHandler(async (req, res) => {
     throw new ApiError(403, "Access denied");
   }
 
-  if (payment.status === PAYMENT_STATUS.COMPLETED) {
-    throw new ApiError(400, "Payment already completed");
+  // Verify signature
+  const isValid = verifyPaymentSignature(
+    razorpay_order_id,
+    razorpay_payment_id,
+    razorpay_signature
+  );
+
+  if (!isValid) {
+    payment.status = PAYMENT_STATUS.FAILED;
+    payment.failureReason = "Invalid payment signature";
+    await payment.save();
+
+    throw new ApiError(400, "Payment verification failed");
   }
 
-  // Mock payment processing
-  // In production, integrate with Razorpay, Stripe, etc.
   try {
-    // Simulate payment gateway response
-    const mockGatewayResponse = {
-      gatewayTransactionId: `GTW${Date.now()}`,
-      status: "success",
-      timestamp: new Date(),
-      ...paymentDetails,
-    };
+    // Fetch payment details from Razorpay
+    const paymentDetails = await fetchPaymentDetails(razorpay_payment_id);
 
+    // Update payment status
     payment.status = PAYMENT_STATUS.COMPLETED;
     payment.paidAt = new Date();
-    payment.paymentGatewayResponse = mockGatewayResponse;
-
+    payment.paymentGatewayResponse = {
+      ...payment.paymentGatewayResponse,
+      razorpay_payment_id,
+      razorpay_signature,
+      payment_details: paymentDetails,
+    };
     await payment.save();
 
     // Update order status
@@ -50,16 +147,47 @@ export const processPayment = asyncHandler(async (req, res) => {
     });
     await order.save();
 
-    return res
-      .status(200)
-      .json(new ApiResponse(200, "Payment processed successfully", payment));
+    return res.status(200).json(
+      new ApiResponse(200, "Payment verified successfully", {
+        payment,
+        order,
+      })
+    );
   } catch (error) {
+    console.error("Payment verification error:", error);
     payment.status = PAYMENT_STATUS.FAILED;
     payment.failureReason = error.message;
     await payment.save();
 
-    throw new ApiError(500, "Payment processing failed");
+    throw new ApiError(500, "Payment verification failed");
   }
+});
+
+// Handle payment failure
+export const handlePaymentFailure = asyncHandler(async (req, res) => {
+  const { paymentId, error } = req.body;
+
+  const payment = await Payment.findById(paymentId);
+
+  if (!payment) {
+    throw new ApiError(404, "Payment not found");
+  }
+
+  if (payment.customer.toString() !== req.user._id.toString()) {
+    throw new ApiError(403, "Access denied");
+  }
+
+  payment.status = PAYMENT_STATUS.FAILED;
+  payment.failureReason = error?.description || "Payment failed";
+  payment.paymentGatewayResponse = {
+    ...payment.paymentGatewayResponse,
+    error,
+  };
+  await payment.save();
+
+  return res
+    .status(200)
+    .json(new ApiResponse(200, "Payment failure recorded", payment));
 });
 
 // Get payment details

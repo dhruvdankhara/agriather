@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
-import { fetchCart } from '../../store/slices/cartSlice';
+import { fetchCart, clearCart } from '../../store/slices/cartSlice';
 import { fetchAddresses, createAddress } from '../../store/slices/addressSlice';
 import { Button } from '../../components/ui/Button';
 import {
@@ -22,8 +22,9 @@ import {
 } from '../../components/ui/Select';
 import { Spinner } from '../../components/ui/Spinner';
 import { formatCurrency } from '../../lib/utils';
+import { displayRazorpay } from '../../lib/razorpay';
 import { Package, MapPin, CreditCard } from 'lucide-react';
-import { orderAPI } from '../../services';
+import { orderAPI, paymentAPI } from '../../services';
 import toast from 'react-hot-toast';
 
 export default function Checkout() {
@@ -98,9 +99,90 @@ export default function Checkout() {
         orderData
       );
 
-      await orderAPI.create(orderData);
-      toast.success('Order placed successfully!');
-      navigate(`/orders`);
+      // Create order
+      const orderResponse = await orderAPI.create(orderData);
+
+      const order = orderResponse.data.data.order;
+
+      // If Cash on Delivery, navigate directly to orders
+      if (paymentMethod === 'cash_on_delivery') {
+        toast.success('Order placed successfully!');
+        await dispatch(clearCart());
+        navigate(`/orders/${order._id}`);
+        return;
+      }
+
+      // For online payment, create Razorpay order
+      const paymentResponse = await paymentAPI.createOrder({
+        orderId: order._id,
+      });
+
+      const paymentData = paymentResponse.data.data;
+
+      if (!paymentData.requiresPayment) {
+        // COD or already paid
+        toast.success('Order placed successfully!');
+        await dispatch(clearCart());
+        navigate(`/orders/${order._id}`);
+        return;
+      }
+
+      // Display Razorpay payment modal
+      const razorpayOptions = {
+        key: paymentData.razorpayKeyId,
+        amount: paymentData.razorpayOrder.amount,
+        currency: paymentData.razorpayOrder.currency,
+        name: 'Agriather',
+        description: `Order ${order.orderNumber}`,
+        order_id: paymentData.razorpayOrder.id,
+        prefill: {
+          email: order.customer?.email || '',
+          contact: order.shippingAddress?.phone || '',
+        },
+        theme: {
+          color: '#16a34a', // Green color
+        },
+      };
+
+      await displayRazorpay(
+        razorpayOptions,
+        // Success callback
+        async (response) => {
+          try {
+            // Verify payment
+            await paymentAPI.verifyPayment({
+              razorpay_order_id: response.razorpay_order_id,
+              razorpay_payment_id: response.razorpay_payment_id,
+              razorpay_signature: response.razorpay_signature,
+              paymentId: paymentData.payment._id,
+            });
+
+            toast.success('Payment successful! Order confirmed.');
+            await dispatch(clearCart());
+            navigate(`/orders/${order._id}`);
+          } catch (error) {
+            console.error('Payment verification error:', error);
+            toast.error('Payment verification failed. Please contact support.');
+            navigate(`/orders/${order._id}`);
+          }
+        },
+        // Failure callback
+        async (error) => {
+          try {
+            await paymentAPI.handleFailure({
+              paymentId: paymentData.payment._id,
+              error: error.error,
+            });
+          } catch (err) {
+            console.error('Error recording payment failure:', err);
+          }
+
+          toast.error(
+            error.error?.description || 'Payment failed. Please try again.'
+          );
+          navigate(`/orders/${order._id}`);
+        }
+      );
     } catch (error) {
       console.error('Order creation error:', error);
       toast.error(error.response?.data?.message || 'Failed to place order');
