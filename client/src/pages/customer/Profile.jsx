@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { updateProfile } from '../../store/slices/authSlice';
+import { changePassword } from '../../store/slices/authSlice';
 import {
   fetchAddresses,
   createAddress,
@@ -35,6 +36,8 @@ import {
   Plus,
   Trash2,
   Star,
+  Lock,
+  Key,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -52,6 +55,14 @@ export default function Profile() {
     email: user?.email || '',
     phone: user?.phone || '',
   });
+
+  const [showPasswordForm, setShowPasswordForm] = useState(false);
+  const [passwordData, setPasswordData] = useState({
+    currentPassword: '',
+    newPassword: '',
+    confirmPassword: '',
+  });
+  const [passwordLoading, setPasswordLoading] = useState(false);
 
   const [showAddressForm, setShowAddressForm] = useState(false);
   const [editingAddressId, setEditingAddressId] = useState(null);
@@ -92,6 +103,41 @@ export default function Profile() {
       phone: user?.phone || '',
     });
     setIsEditing(false);
+  };
+
+  const handlePasswordChange = async (e) => {
+    e.preventDefault();
+
+    if (passwordData.newPassword !== passwordData.confirmPassword) {
+      toast.error('New passwords do not match');
+      return;
+    }
+
+    if (passwordData.newPassword.length < 6) {
+      toast.error('Password must be at least 6 characters long');
+      return;
+    }
+
+    setPasswordLoading(true);
+    try {
+      await dispatch(
+        changePassword({
+          currentPassword: passwordData.currentPassword,
+          newPassword: passwordData.newPassword,
+        })
+      ).unwrap();
+      toast.success('Password updated successfully');
+      setShowPasswordForm(false);
+      setPasswordData({
+        currentPassword: '',
+        newPassword: '',
+        confirmPassword: '',
+      });
+    } catch (error) {
+      toast.error(error || 'Failed to update password');
+    } finally {
+      setPasswordLoading(false);
+    }
   };
 
   return (
@@ -215,6 +261,124 @@ export default function Profile() {
                     <p className="font-medium capitalize">{user?.role}</p>
                   </div>
                 </div>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Password Management */}
+        <Card>
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <CardTitle className="flex items-center gap-2">
+                <Lock className="h-5 w-5" />
+                Password & Security
+              </CardTitle>
+              {!showPasswordForm && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowPasswordForm(true)}
+                >
+                  <Key className="mr-2 h-4 w-4" />
+                  Change Password
+                </Button>
+              )}
+            </div>
+          </CardHeader>
+          <CardContent>
+            {showPasswordForm ? (
+              <form onSubmit={handlePasswordChange} className="space-y-4">
+                <div>
+                  <Label htmlFor="currentPassword">Current Password</Label>
+                  <Input
+                    id="currentPassword"
+                    type="password"
+                    value={passwordData.currentPassword}
+                    onChange={(e) =>
+                      setPasswordData({
+                        ...passwordData,
+                        currentPassword: e.target.value,
+                      })
+                    }
+                    required
+                    placeholder="Enter your current password"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="newPassword">New Password</Label>
+                  <Input
+                    id="newPassword"
+                    type="password"
+                    value={passwordData.newPassword}
+                    onChange={(e) =>
+                      setPasswordData({
+                        ...passwordData,
+                        newPassword: e.target.value,
+                      })
+                    }
+                    required
+                    placeholder="Enter new password (min 6 characters)"
+                    minLength={6}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="confirmPassword">Confirm New Password</Label>
+                  <Input
+                    id="confirmPassword"
+                    type="password"
+                    value={passwordData.confirmPassword}
+                    onChange={(e) =>
+                      setPasswordData({
+                        ...passwordData,
+                        confirmPassword: e.target.value,
+                      })
+                    }
+                    required
+                    placeholder="Re-enter new password"
+                    minLength={6}
+                  />
+                </div>
+                <div className="flex gap-2">
+                  <Button
+                    type="submit"
+                    disabled={passwordLoading}
+                    className="bg-green-600 hover:bg-green-700"
+                  >
+                    {passwordLoading ? (
+                      <Spinner className="h-4 w-4" />
+                    ) : (
+                      'Update Password'
+                    )}
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => {
+                      setShowPasswordForm(false);
+                      setPasswordData({
+                        currentPassword: '',
+                        newPassword: '',
+                        confirmPassword: '',
+                      });
+                    }}
+                  >
+                    Cancel
+                  </Button>
+                </div>
+              </form>
+            ) : (
+              <div className="space-y-4">
+                <div className="flex items-center gap-3">
+                  <Lock className="h-5 w-5 text-gray-400" />
+                  <div>
+                    <p className="text-sm text-gray-600">Password</p>
+                    <p className="font-medium">••••••••</p>
+                  </div>
+                </div>
+                <p className="text-sm text-gray-600">
+                  Change your password to keep your account secure
+                </p>
               </div>
             )}
           </CardContent>

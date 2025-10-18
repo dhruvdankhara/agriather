@@ -155,17 +155,17 @@ export default function Products() {
   };
 
   return (
-    <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+    <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 sm:py-8 lg:px-8">
       {/* Header */}
-      <div className="mb-8">
-        <h1 className="mb-2 text-3xl font-bold">Products</h1>
-        <p className="text-gray-600">
+      <div className="mb-6 sm:mb-8">
+        <h1 className="mb-2 text-2xl font-bold sm:text-3xl">Products</h1>
+        <p className="text-sm text-gray-600 sm:text-base">
           Discover quality agricultural products from verified suppliers
         </p>
       </div>
 
       {/* Search and Filters */}
-      <div className="mb-8 space-y-4 rounded-lg bg-white p-6 shadow-sm">
+      <div className="mb-6 space-y-4 rounded-lg bg-white p-4 shadow-sm sm:mb-8 sm:p-6">
         {/* Search Bar */}
         <form onSubmit={handleSearch} className="flex gap-2">
           <div className="relative flex-1">
@@ -178,11 +178,13 @@ export default function Products() {
               className="pl-10"
             />
           </div>
-          <Button type="submit">Search</Button>
+          <Button type="submit" size="sm" className="sm:px-6">
+            Search
+          </Button>
         </form>
 
-        {/* Filters */}
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
+        {/* Filters - Responsive Grid */}
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <Select value={selectedCategory} onValueChange={handleCategoryChange}>
             <SelectTrigger>
               <SelectValue placeholder="All Categories" />
@@ -262,47 +264,47 @@ export default function Products() {
         </div>
       ) : (
         <>
-          <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-6 lg:grid-cols-3 xl:grid-cols-4">
             {products.map((product) => (
               <Card
                 key={product._id}
-                className="transition-shadow hover:shadow-lg"
+                className="group overflow-hidden transition-shadow hover:shadow-lg"
               >
-                <CardContent className="p-4">
+                <CardContent className="p-3 sm:p-4">
                   <Link to={`/products/${product._id}`}>
-                    <div className="mb-4 flex aspect-square items-center justify-center overflow-hidden rounded-lg bg-gray-200">
+                    <div className="mb-3 flex aspect-square items-center justify-center overflow-hidden rounded-lg bg-gray-100">
                       {product.images?.[0] ? (
                         <img
                           src={product.images[0]}
                           alt={product.name}
-                          className="h-full w-full object-cover transition-transform hover:scale-105"
+                          className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
                         />
                       ) : (
-                        <Package className="h-16 w-16 text-gray-400" />
+                        <Package className="h-12 w-12 text-gray-400 sm:h-16 sm:w-16" />
                       )}
                     </div>
                   </Link>
                   <Link to={`/products/${product._id}`}>
-                    <h3 className="mb-2 line-clamp-2 font-semibold hover:text-blue-600">
+                    <h3 className="mb-2 line-clamp-2 text-sm font-semibold group-hover:text-green-600 sm:text-base">
                       {product.name}
                     </h3>
                   </Link>
-                  <p className="mb-2 line-clamp-2 text-sm text-gray-500">
+                  <p className="mb-3 line-clamp-2 text-xs text-gray-600 sm:text-sm">
                     {product.description}
                   </p>
-                  <div className="mb-3 flex items-center justify-between">
-                    <div>
-                      <p className="text-lg font-bold text-blue-600">
+                  <div className="mb-3 flex items-baseline justify-between gap-2">
+                    <div className="flex-1">
+                      <p className="text-base font-bold text-green-600 sm:text-lg">
                         {formatCurrency(product.discountPrice || product.price)}
                       </p>
                       {product.discountPrice && (
-                        <p className="text-sm text-gray-400 line-through">
+                        <p className="text-xs text-gray-400 line-through sm:text-sm">
                           {formatCurrency(product.price)}
                         </p>
                       )}
                     </div>
                     {product.discountPrice && (
-                      <Badge variant="destructive">
+                      <Badge variant="destructive" className="text-xs">
                         {Math.round(
                           ((product.price - product.discountPrice) /
                             product.price) *
@@ -313,26 +315,33 @@ export default function Products() {
                     )}
                   </div>
                   {product.stock > 0 ? (
-                    <Badge variant="outline" className="mb-3">
+                    <Badge variant="outline" className="mb-3 text-xs">
                       In Stock: {product.stock}
                     </Badge>
                   ) : (
-                    <Badge variant="destructive" className="mb-3">
+                    <Badge variant="destructive" className="mb-3 text-xs">
                       Out of Stock
                     </Badge>
                   )}
                 </CardContent>
-                <CardFooter className="flex gap-2 p-4 pt-0">
-                  <Button asChild className="flex-1" variant="outline">
-                    <Link to={`/products/${product._id}`}>Details</Link>
+                <CardFooter className="flex gap-2 p-3 pt-0 sm:p-4 sm:pt-0">
+                  <Button
+                    asChild
+                    className="flex-1"
+                    variant="outline"
+                    size="sm"
+                  >
+                    <Link to={`/products/${product._id}`}>View</Link>
                   </Button>
                   <Button
                     onClick={() => handleAddToCart(product._id)}
                     disabled={product.stock === 0}
                     className="flex-1"
+                    size="sm"
                   >
-                    <ShoppingCart className="mr-2 h-4 w-4" />
-                    Add
+                    <ShoppingCart className="mr-1 h-3 w-3 sm:mr-2 sm:h-4 sm:w-4" />
+                    <span className="hidden sm:inline">Add</span>
+                    <span className="sm:hidden">+</span>
                   </Button>
                 </CardFooter>
               </Card>
@@ -341,29 +350,35 @@ export default function Products() {
 
           {/* Pagination */}
           {totalPages > 1 && (
-            <div className="flex justify-center gap-2">
+            <div className="mt-8 flex flex-wrap justify-center gap-2">
               <Button
                 variant="outline"
                 onClick={() => handlePageChange(currentPage - 1)}
                 disabled={currentPage === 1}
+                size="sm"
               >
                 Previous
               </Button>
-              {Array.from({ length: totalPages }, (_, i) => i + 1).map(
-                (page) => (
-                  <Button
-                    key={page}
-                    variant={currentPage === page ? 'default' : 'outline'}
-                    onClick={() => handlePageChange(page)}
-                  >
-                    {page}
-                  </Button>
-                )
-              )}
+              <div className="flex flex-wrap gap-2">
+                {Array.from({ length: totalPages }, (_, i) => i + 1).map(
+                  (page) => (
+                    <Button
+                      key={page}
+                      variant={currentPage === page ? 'default' : 'outline'}
+                      onClick={() => handlePageChange(page)}
+                      size="sm"
+                      className="min-w-[40px]"
+                    >
+                      {page}
+                    </Button>
+                  )
+                )}
+              </div>
               <Button
                 variant="outline"
                 onClick={() => handlePageChange(currentPage + 1)}
                 disabled={currentPage === totalPages}
+                size="sm"
               >
                 Next
               </Button>

@@ -26,16 +26,6 @@ export default function CustomerLayout() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
 
-  // Categories data
-  const categories = [
-    { name: 'Seeds', icon: '🌱', path: '/products?category=seeds' },
-    { name: 'Fertilizers', icon: '🧪', path: '/products?category=fertilizers' },
-    { name: 'Tools', icon: '🔧', path: '/products?category=tools' },
-    { name: 'Equipment', icon: '🚜', path: '/products?category=equipment' },
-    { name: 'Pesticides', icon: '🛡️', path: '/products?category=pesticides' },
-    { name: 'Irrigation', icon: '💧', path: '/products?category=irrigation' },
-  ];
-
   // Handle scroll for navbar shadow
   useEffect(() => {
     const handleScroll = () => {
@@ -117,61 +107,18 @@ export default function CustomerLayout() {
                 <span>Home</span>
               </Link>
 
-              {/* Categories Dropdown */}
-              <div className="group relative">
-                <button
-                  className={`flex items-center space-x-1 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
-                    location.pathname === '/products'
-                      ? 'bg-blue-50 text-blue-600'
-                      : 'text-gray-700 hover:bg-gray-100 hover:text-blue-600'
-                  }`}
-                >
-                  <Package className="h-4 w-4" />
-                  <span>Products</span>
-                  <ChevronDown className="h-4 w-4" />
-                </button>
-                {/* Dropdown Menu */}
-                <div className="ring-opacity-5 absolute left-0 hidden pt-2 group-hover:block">
-                  <div className="ring-opacity-5 w-64 rounded-lg bg-white py-2 shadow-xl ring-1 ring-black">
-                    <Link
-                      to="/products"
-                      className="block px-4 py-2 text-sm font-medium text-gray-900 hover:bg-blue-50"
-                    >
-                      All Products
-                    </Link>
-                    <div className="my-2 border-t border-gray-100"></div>
-                    <div className="px-3 py-1 text-xs font-semibold text-gray-500">
-                      CATEGORIES
-                    </div>
-                    {categories.map((category) => (
-                      <Link
-                        key={category.name}
-                        to={category.path}
-                        className="flex items-center space-x-3 px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-600"
-                      >
-                        <span className="text-lg">{category.icon}</span>
-                        <span>{category.name}</span>
-                      </Link>
-                    ))}
-                  </div>
-                </div>
-              </div>
-
-              {isAuthenticated && (
-                <>
-                  <Link
-                    to="/orders"
-                    className={`flex items-center space-x-1 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
-                      isActiveLink('/orders')
-                        ? 'bg-blue-50 text-blue-600'
-                        : 'text-gray-700 hover:bg-gray-100 hover:text-blue-600'
-                    }`}
-                  >
-                    <Package className="h-4 w-4" />
-                    <span>Orders</span>
-                  </Link>
-                </>
-              )}
+              {/* Products Link (No Dropdown) */}
+              <Link
+                to="/products"
+                className={`flex items-center space-x-1 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
+                  location.pathname === '/products'
+                    ? 'bg-blue-50 text-blue-600'
+                    : 'text-gray-700 hover:bg-gray-100 hover:text-blue-600'
+                }`}
+              >
+                <Package className="h-4 w-4" />
+                <span>Products</span>
+              </Link>
             </nav>
 
             {/* Actions */}
@@ -299,53 +246,11 @@ export default function CustomerLayout() {
                   onClick={() => setMobileMenuOpen(false)}
                 >
                   <Package className="h-5 w-5" />
-                  <span>All Products</span>
+                  <span>Products</span>
                 </Link>
-
-                {/* Mobile Categories */}
-                <div className="py-2">
-                  <div className="px-3 py-1 text-xs font-semibold text-gray-500">
-                    CATEGORIES
-                  </div>
-                  {categories.map((category) => (
-                    <Link
-                      key={category.name}
-                      to={category.path}
-                      className="flex items-center space-x-3 rounded-lg px-3 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                      onClick={() => setMobileMenuOpen(false)}
-                    >
-                      <span className="text-lg">{category.icon}</span>
-                      <span>{category.name}</span>
-                    </Link>
-                  ))}
-                </div>
 
                 {isAuthenticated && (
                   <>
-                    <Link
-                      to="/orders"
-                      className={`flex items-center space-x-3 rounded-lg px-3 py-2.5 text-sm font-medium ${
-                        isActiveLink('/orders')
-                          ? 'bg-blue-50 text-blue-600'
-                          : 'text-gray-700 hover:bg-gray-100'
-                      }`}
-                      onClick={() => setMobileMenuOpen(false)}
-                    >
-                      <Package className="h-5 w-5" />
-                      <span>My Orders</span>
-                    </Link>
-                    <Link
-                      to="/reviews"
-                      className={`flex items-center space-x-3 rounded-lg px-3 py-2.5 text-sm font-medium ${
-                        isActiveLink('/reviews')
-                          ? 'bg-blue-50 text-blue-600'
-                          : 'text-gray-700 hover:bg-gray-100'
-                      }`}
-                      onClick={() => setMobileMenuOpen(false)}
-                    >
-                      <Heart className="h-5 w-5" />
-                      <span>My Reviews</span>
-                    </Link>
                     <Link
                       to="/profile"
                       className={`flex items-center space-x-3 rounded-lg px-3 py-2.5 text-sm font-medium ${

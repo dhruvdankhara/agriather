@@ -55,7 +55,7 @@ export const updateProfileSchema = yup.object({
 });
 
 export const changePasswordSchema = yup.object({
-  oldPassword: yup.string().required("Old password is required"),
+  currentPassword: yup.string().required("Current password is required"),
   newPassword: yup
     .string()
     .required("New password is required")
