@@ -245,15 +245,22 @@ export const getCustomerPayments = asyncHandler(async (req, res) => {
 
 // Get supplier's payment history
 export const getSupplierPayments = asyncHandler(async (req, res) => {
-  const { page = 1, limit = 10, status } = req.query;
+  const { page = 1, limit = 100, status } = req.query;
 
-  // Get orders where supplier has products
+  // Get all orders that contain this supplier's items
   const orders = await Order.find({
     "items.supplier": req.user._id,
-    status: ORDER_STATUS.DELIVERED,
-  }).select("_id");
+  })
+    .select("_id items")
+    .lean();
 
   const orderIds = orders.map((order) => order._id);
+
+  if (orderIds.length === 0) {
+    return res.status(200).json(
+      new ApiResponse(200, "No payments found", [])
+    );
+  }
 
   const query = {
     order: { $in: orderIds },
@@ -264,26 +271,52 @@ export const getSupplierPayments = asyncHandler(async (req, res) => {
   }
 
   const payments = await Payment.find(query)
-    .populate("order", "orderNumber items")
+    .populate("order", "orderNumber items status")
     .populate("customer", "firstname lastname email")
     .limit(limit * 1)
     .skip((page - 1) * limit)
-    .sort({ createdAt: -1 });
+    .sort({ createdAt: -1 })
+    .lean();
 
   // Calculate supplier's earnings from each payment
   const paymentsWithEarnings = payments.map((payment) => {
-    const order = payment.order;
-    const supplierItems = order.items.filter(
+    // Find the full order data
+    const fullOrder = orders.find(
+      (o) => o._id.toString() === payment.order._id.toString()
+    );
+
+    // Filter items belonging to this supplier
+    const supplierItems = fullOrder.items.filter(
       (item) => item.supplier.toString() === req.user._id.toString()
     );
 
+    // Calculate earnings (subtotal for supplier's items)
     const supplierEarnings = supplierItems.reduce(
-      (sum, item) => sum + item.subtotal,
+      (sum, item) => sum + (item.subtotal || 0),
       0
     );
 
+    // Map payment status to frontend expected format
+    let statusLabel = "Processing";
+    if (payment.status === PAYMENT_STATUS.COMPLETED || payment.status === "completed") {
+      statusLabel = "Completed";
+    } else if (payment.status === PAYMENT_STATUS.PENDING || payment.status === "pending") {
+      statusLabel = "Pending";
+    } else if (payment.status === PAYMENT_STATUS.FAILED || payment.status === "failed") {
+      statusLabel = "Failed";
+    }
+
     return {
-      ...payment.toObject(),
+      _id: payment._id,
+      order: payment.order._id,
+      orderNumber: payment.order.orderNumber,
+      customer: payment.customer,
+      amount: supplierEarnings, // Use supplier's portion as amount
+      status: statusLabel,
+      paymentMethod: payment.paymentMethod,
+      transactionId: payment.transactionId,
+      createdAt: payment.createdAt,
+      paidAt: payment.paidAt,
       supplierEarnings,
       supplierItems: supplierItems.length,
     };
@@ -292,12 +325,11 @@ export const getSupplierPayments = asyncHandler(async (req, res) => {
   const count = await Payment.countDocuments(query);
 
   return res.status(200).json(
-    new ApiResponse(200, "Supplier payment history fetched successfully", {
-      payments: paymentsWithEarnings,
-      totalPages: Math.ceil(count / limit),
-      currentPage: Number(page),
-      totalPayments: count,
-    })
+    new ApiResponse(
+      200,
+      "Supplier payment history fetched successfully",
+      paymentsWithEarnings
+    )
   );
 });
 
