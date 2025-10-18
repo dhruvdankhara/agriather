@@ -522,7 +522,8 @@ export const generateSalesReport = asyncHandler(async (req, res) => {
     matchQuery["items.supplier"] = supplierId;
   }
 
-  const salesReport = await Order.aggregate([
+  // Overall sales summary
+  const salesSummary = await Order.aggregate([
     { $match: matchQuery },
     {
       $group: {
@@ -536,6 +537,7 @@ export const generateSalesReport = asyncHandler(async (req, res) => {
     },
   ]);
 
+  // Category-wise sales
   const categoryWiseSales = await Order.aggregate([
     { $match: matchQuery },
     { $unwind: "$items" },
@@ -564,12 +566,63 @@ export const generateSalesReport = asyncHandler(async (req, res) => {
         totalQuantity: { $sum: "$items.quantity" },
       },
     },
+    { $sort: { totalSales: -1 } },
   ]);
+
+  // Top products
+  const topProducts = await Order.aggregate([
+    { $match: matchQuery },
+    { $unwind: "$items" },
+    {
+      $lookup: {
+        from: "products",
+        localField: "items.product",
+        foreignField: "_id",
+        as: "productInfo",
+      },
+    },
+    { $unwind: "$productInfo" },
+    {
+      $group: {
+        _id: "$items.product",
+        productName: { $first: "$productInfo.name" },
+        totalSales: { $sum: "$items.subtotal" },
+        totalQuantity: { $sum: "$items.quantity" },
+      },
+    },
+    { $sort: { totalSales: -1 } },
+    { $limit: 10 },
+  ]);
+
+  // Daily sales trend (if date range provided)
+  let salesTrend = [];
+  if (startDate && endDate) {
+    salesTrend = await Order.aggregate([
+      { $match: matchQuery },
+      {
+        $group: {
+          _id: {
+            $dateToString: { format: "%Y-%m-%d", date: "$createdAt" },
+          },
+          totalSales: { $sum: "$finalAmount" },
+          totalOrders: { $sum: 1 },
+        },
+      },
+      { $sort: { _id: 1 } },
+    ]);
+  }
 
   return res.status(200).json(
     new ApiResponse(200, "Sales report generated successfully", {
-      summary: salesReport[0] || {},
+      summary: salesSummary[0] || {
+        totalOrders: 0,
+        totalRevenue: 0,
+        totalTax: 0,
+        averageOrderValue: 0,
+      },
       categoryWiseSales,
+      topProducts,
+      salesTrend,
     })
   );
 });

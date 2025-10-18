@@ -27,6 +27,7 @@ import {
   SelectValue,
 } from '../../components/ui/Select';
 import { Spinner } from '../../components/ui/Spinner';
+import AvatarUpload from '../../components/AvatarUpload';
 import {
   User,
   Mail,
@@ -145,6 +146,13 @@ export default function Profile() {
       <h1 className="mb-6 text-3xl font-bold">My Profile</h1>
 
       <div className="grid gap-6">
+        {/* Avatar Section */}
+        <Card>
+          <CardContent className="pt-6">
+            <AvatarUpload />
+          </CardContent>
+        </Card>
+
         {/* Profile Information */}
         <Card>
           <CardHeader>

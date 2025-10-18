@@ -83,6 +83,22 @@ export const changePassword = createAsyncThunk(
   }
 );
 
+export const updateAvatar = createAsyncThunk(
+  'auth/updateAvatar',
+  async (file, { rejectWithValue }) => {
+    try {
+      const formData = new FormData();
+      formData.append('avatar', file);
+      const response = await authAPI.updateAvatar(formData);
+      toast.success('Profile picture updated successfully');
+      return response.data.data;
+    } catch (error) {
+      toast.error(error.response?.data?.message || 'Failed to update avatar');
+      return rejectWithValue(error.response?.data);
+    }
+  }
+);
+
 // Slice
 const authSlice = createSlice({
   name: 'auth',
@@ -164,6 +180,18 @@ const authSlice = createSlice({
         state.user = action.payload;
       })
       .addCase(updateProfile.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload;
+      })
+      // Update avatar
+      .addCase(updateAvatar.pending, (state) => {
+        state.loading = true;
+      })
+      .addCase(updateAvatar.fulfilled, (state, action) => {
+        state.loading = false;
+        state.user = action.payload;
+      })
+      .addCase(updateAvatar.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload;
       });

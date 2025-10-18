@@ -26,6 +26,7 @@ import SupplierOrders from '../pages/supplier/Orders';
 import SupplierPayments from '../pages/supplier/Payments';
 import SupplierReviews from '../pages/supplier/Reviews';
 import SupplierReports from '../pages/supplier/Reports';
+import SupplierProfile from '../pages/supplier/Profile';
 
 // Admin pages
 import AdminLayout from '../layouts/AdminLayout';
@@ -37,6 +38,7 @@ import AdminOrders from '../pages/admin/Orders';
 import AdminPayments from '../pages/admin/Payments';
 import AdminReviews from '../pages/admin/Reviews';
 import AdminReports from '../pages/admin/Reports';
+import AdminProfile from '../pages/admin/Profile';
 
 // Protected route wrapper
 const ProtectedRoute = ({ children, allowedRoles }) => {
@@ -160,6 +162,7 @@ export default function AppRoutes() {
         <Route path="payments" element={<SupplierPayments />} />
         <Route path="reviews" element={<SupplierReviews />} />
         <Route path="reports" element={<SupplierReports />} />
+        <Route path="profile" element={<SupplierProfile />} />
       </Route>
 
       {/* Admin routes */}
@@ -179,6 +182,7 @@ export default function AppRoutes() {
         <Route path="payments" element={<AdminPayments />} />
         <Route path="reviews" element={<AdminReviews />} />
         <Route path="reports" element={<AdminReports />} />
+        <Route path="profile" element={<AdminProfile />} />
       </Route>
 
       {/* 404 */}

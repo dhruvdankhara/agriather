@@ -3,6 +3,7 @@ import ApiError from "../utils/ApiError.js";
 import ApiResponse from "../utils/ApiResponse.js";
 import User from "../models/user.model.js";
 import { USER_ROLES } from "../constants.js";
+import { uploadImage, deleteImage } from "../utils/cloudinary.js";
 
 // Register new user (Customer or Supplier)
 export const register = asyncHandler(async (req, res) => {
@@ -196,26 +197,45 @@ export const changePassword = asyncHandler(async (req, res) => {
 
 // Update avatar
 export const updateAvatar = asyncHandler(async (req, res) => {
-  const avatarLocalPath = req.file?.path;
-
-  if (!avatarLocalPath) {
-    throw new ApiError(400, "Avatar file is required");
+  if (!req.file) {
+    throw new ApiError(400, "Avatar image is required");
   }
 
-  // Upload to cloudinary (if configured)
-  // const avatar = await uploadOnCloudinary(avatarLocalPath);
-  // For now, just store the local path
-  const avatar = avatarLocalPath;
+  const user = await User.findById(req.user._id);
 
-  const user = await User.findByIdAndUpdate(
-    req.user._id,
-    { $set: { avatar } },
-    { new: true }
-  ).select("-password -forgotPasswordToken -verifyToken");
+  // Delete old avatar from Cloudinary if exists
+  if (user.avatar) {
+    try {
+      // Extract public ID from Cloudinary URL
+      const urlParts = user.avatar.split('/');
+      const publicIdWithExtension = urlParts[urlParts.length - 1];
+      const publicId = `agriather/avatars/${publicIdWithExtension.split('.')[0]}`;
+      await deleteImage(publicId);
+      console.log("✅ Old avatar deleted from Cloudinary");
+    } catch (error) {
+      console.error("⚠️ Failed to delete old avatar:", error.message);
+      // Continue even if deletion fails
+    }
+  }
+
+  // Upload new avatar to Cloudinary
+  const uploadResult = await uploadImage(req.file.buffer, "agriather/avatars");
+
+  if (!uploadResult) {
+    throw new ApiError(500, "Failed to upload avatar to Cloudinary");
+  }
+
+  // Update user avatar
+  user.avatar = uploadResult.url;
+  await user.save();
+
+  const updatedUser = await User.findById(user._id).select(
+    "-password -forgotPasswordToken -verifyToken"
+  );
 
   return res
     .status(200)
-    .json(new ApiResponse(200, "Avatar updated successfully", user));
+    .json(new ApiResponse(200, "Avatar updated successfully", updatedUser));
 });
 
 // Add shipping address (Customer only)

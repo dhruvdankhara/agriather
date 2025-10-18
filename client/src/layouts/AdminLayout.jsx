@@ -14,6 +14,7 @@ import {
   Menu,
   X,
   UserCircle,
+  User,
 } from 'lucide-react';
 import { useState } from 'react';
 import toast from 'react-hot-toast';
@@ -75,6 +76,11 @@ export default function AdminLayout() {
       href: '/admin/reports',
       icon: FileText,
     },
+    {
+      name: 'Profile',
+      href: '/admin/profile',
+      icon: User,
+    },
   ];
 
   return (
@@ -89,9 +95,8 @@ export default function AdminLayout() {
 
       {/* Sidebar */}
       <div
-        className={`fixed inset-y-0 left-0 z-50 w-64 transform bg-white shadow-lg transition-transform duration-300 ease-in-out lg:relative lg:translate-x-0 ${
-          sidebarOpen ? 'translate-x-0' : '-translate-x-full'
-        }`}
+        className={`fixed inset-y-0 left-0 z-50 w-64 transform bg-white shadow-lg transition-transform duration-300 ease-in-out lg:relative lg:translate-x-0 ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'
+          }`}
       >
         <div className="flex h-full flex-col">
           {/* Logo/Header */}
@@ -113,10 +118,9 @@ export default function AdminLayout() {
                 end={item.href === '/admin'}
                 onClick={() => setSidebarOpen(false)}
                 className={({ isActive }) =>
-                  `flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
-                    isActive
-                      ? 'bg-green-50 text-green-600'
-                      : 'text-gray-700 hover:bg-gray-100'
+                  `flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${isActive
+                    ? 'bg-green-50 text-green-600'
+                    : 'text-gray-700 hover:bg-gray-100'
                   }`
                 }
               >
